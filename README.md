@@ -1,6 +1,6 @@
 # WordBook
 
-WordBook 是一个用于收集、整理和复习 PDF 阅读生词的个人单词本。第一版同时提供网页管理界面和 Edge 扩展上传 API，数据保存在项目内的 JSON 文件中，不使用数据库。
+WordBook 是一个用于收集、整理和复习 PDF 阅读生词的个人单词本。项目同时提供网页管理界面、Edge 扩展和受令牌保护的上传 API，数据保存在项目内的 JSON 文件中，不使用数据库。
 
 ## 第一版功能
 
@@ -10,6 +10,8 @@ WordBook 是一个用于收集、整理和复习 PDF 阅读生词的个人单词
 - Edge 扩展上传接口使用独立令牌校验
 - 单词忽略大小写和首尾空格进行重复检测
 - JSON 数据采用临时文件替换方式写入，避免写到一半损坏原文件
+- Edge 插件支持反引号、`Alt+W`、右键菜单和工具栏四种录入入口
+- 插件设置页保存服务器地址与令牌，录入窗口支持释义、例句、来源、页码、标签和备注
 - 电脑和手机响应式页面
 - Node.js 仅监听 `127.0.0.1:3040`
 - Nginx 对外监听 `16040`
@@ -27,11 +29,14 @@ WordBook/
 ├── deploy/
 │   ├── nginx/WordBook
 │   └── systemd/WordBook.service
+├── edge-extension/          # Edge PDF 生词助手
 ├── public/
 │   ├── app.js
 │   ├── index.html
 │   └── styles.css
-├── test/app.test.js
+├── test/
+│   ├── app.test.js
+│   └── extension.test.js
 ├── .env.example
 └── package.json
 ```
@@ -92,6 +97,12 @@ EXTENSION_API_TOKEN=local-test-token npm start
 ```bash
 npm test
 ```
+
+## 安装 Edge 插件
+
+插件不需要放到服务器运行。打开 Edge 的 `edge://extensions/`，启用“开发人员模式”，点击“加载解压缩的扩展”，然后选择本项目中的 `edge-extension` 文件夹。
+
+详细的配置、使用方法与 PDF 阅读器兼容说明见 [`edge-extension/README.md`](edge-extension/README.md)。
 
 ## Ubuntu 服务器部署
 

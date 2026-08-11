@@ -1,0 +1,55 @@
+body {
+  width: 360px;
+}
+
+.popup-shell {
+  padding: 20px;
+}
+
+.brand.compact {
+  margin-bottom: 18px;
+}
+
+.capture-button {
+  display: flex;
+  width: 100%;
+  min-height: 76px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(47, 125, 101, 0.16);
+  border-radius: 17px;
+  color: #244e40;
+  background: linear-gradient(145deg, #f5fbf7, #e8f4ed);
+  text-align: left;
+  font-weight: 750;
+}
+
+.capture-button:hover {
+  border-color: rgba(47, 125, 101, 0.36);
+}
+
+.capture-button small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.tip {
+  margin: 12px 2px 18px;
+  color: #75837e;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.popup-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.popup-actions .button.secondary {
+  flex: 1;
+}

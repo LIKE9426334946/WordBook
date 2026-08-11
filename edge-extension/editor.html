@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>添加到 WordBook</title>
+    <link rel="stylesheet" href="common.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="brand">
+        <div class="brand-mark">W</div>
+        <div>
+          <h1>添加到 WordBook</h1>
+          <p>补充释义后保存到你的服务器</p>
+        </div>
+      </header>
+
+      <section class="card">
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+        <form id="word-form">
+          <div class="field">
+            <label for="word">单词</label>
+            <input id="word" name="word" maxlength="100" autocomplete="off" required>
+          </div>
+
+          <div class="field">
+            <label for="meaning">释义</label>
+            <textarea id="meaning" name="meaning" maxlength="1000" required autofocus></textarea>
+          </div>
+
+          <div class="field">
+            <label for="examples">例句 <span class="hint">每行一句</span></label>
+            <textarea id="examples" name="examples" maxlength="5000"></textarea>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="sourcePdf">PDF / 来源</label>
+              <input id="sourcePdf" name="sourcePdf" maxlength="300">
+            </div>
+            <div class="field">
+              <label for="page">页码</label>
+              <input id="page" name="page" type="number" min="1" max="100000" inputmode="numeric">
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="tags">标签 <span class="hint">用逗号分隔</span></label>
+            <input id="tags" name="tags" maxlength="300" placeholder="论文, 神经网络">
+          </div>
+
+          <div class="field">
+            <label for="notes">备注</label>
+            <textarea id="notes" name="notes" maxlength="2000"></textarea>
+          </div>
+
+          <div class="actions">
+            <button id="settings" class="button text" type="button">设置</button>
+            <button class="button secondary" type="button" id="cancel">取消</button>
+            <button class="button primary" type="submit" id="save">保存</button>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <script src="shared.js"></script>
+    <script src="editor.js"></script>
+  </body>
+</html>

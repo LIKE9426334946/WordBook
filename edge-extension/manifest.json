@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "WordBook PDF 生词助手",
+  "version": "1.0.0",
+  "description": "选中 PDF 或网页中的英文单词，快速填写释义并保存到 WordBook。",
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "scripting",
+    "storage"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "添加到 WordBook",
+    "default_popup": "popup.html"
+  },
+  "options_page": "options.html",
+  "commands": {
+    "capture-selection": {
+      "suggested_key": {
+        "default": "Alt+W"
+      },
+      "description": "将当前选中的单词添加到 WordBook"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["shared.js", "content.js"],
+      "all_frames": true,
+      "match_about_blank": true,
+      "run_at": "document_idle"
+    }
+  ]
+}

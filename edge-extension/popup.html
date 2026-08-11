@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WordBook</title>
+    <link rel="stylesheet" href="common.css">
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="popup-shell">
+      <header class="brand compact">
+        <div class="brand-mark">W</div>
+        <div>
+          <h1>WordBook</h1>
+          <p>PDF 生词助手</p>
+        </div>
+      </header>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+      <button id="capture" class="capture-button" type="button">
+        <span>添加当前选中的单词</span>
+        <small><span class="shortcut">Alt</span> + <span class="shortcut">W</span></small>
+      </button>
+      <p class="tip">在页面中还可以直接按 <span class="shortcut">`</span>。PDF 阅读器无响应时请使用右键菜单。</p>
+
+      <div class="popup-actions">
+        <button id="open-wordbook" class="button secondary" type="button">打开单词本</button>
+        <button id="settings" class="button text" type="button">设置</button>
+      </div>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
