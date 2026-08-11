@@ -1,0 +1,19 @@
+{
+  "name": "wordbook",
+  "version": "1.0.0",
+  "private": true,
+  "description": "用于收集、整理和复习 PDF 生词的个人单词本",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "NODE_ENV=development node --watch backend/server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  }
+}

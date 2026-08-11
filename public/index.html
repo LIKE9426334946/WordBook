@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f6f3eb" />
+    <meta
+      name="description"
+      content="WordBook——收集、整理和复习 PDF 阅读中遇到的英文单词。"
+    />
+    <title>WordBook · 我的单词本</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand" href="/" aria-label="WordBook 首页">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 40 40" role="img">
+              <path d="M11 10.5c4.5 0 7.5 1.5 9 4.3v16.1c-1.9-2.3-4.8-3.4-9-3.4V10.5Z" />
+              <path d="M29 10.5c-4.5 0-7.5 1.5-9 4.3v16.1c1.9-2.3 4.8-3.4 9-3.4V10.5Z" />
+            </svg>
+          </span>
+          <span>
+            <strong>WordBook</strong>
+            <small>阅读生词本</small>
+          </span>
+        </a>
+
+        <nav class="side-nav" aria-label="主导航">
+          <button class="nav-item active" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 4.8A2.8 2.8 0 0 1 7.8 2H20v17H7.8A2.8 2.8 0 0 0 5 21.8V4.8Z" />
+              <path d="M5 19V5a3 3 0 0 0-3 3v11a3 3 0 0 0 3 3h15" />
+            </svg>
+            全部单词
+          </button>
+        </nav>
+
+        <div class="sidebar-note">
+          <span class="note-icon" aria-hidden="true">⌁</span>
+          <p>以后在 PDF 中选中单词，就能通过 Edge 扩展直接收藏到这里。</p>
+        </div>
+        <p class="sidebar-footer">Quiet words, steady progress.</p>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow" id="todayLabel">今天也读一点</p>
+            <h1>我的单词本</h1>
+            <p class="subtitle">把阅读时遇见的词，慢慢变成自己的词。</p>
+          </div>
+          <button class="primary-button" id="addWordButton" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+            添加单词
+          </button>
+        </header>
+
+        <section class="stats-grid" aria-label="单词本统计">
+          <article class="stat-card stat-total">
+            <span class="stat-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M6 3h12a2 2 0 0 1 2 2v16H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" /><path d="M8 8h8M8 12h6" /></svg>
+            </span>
+            <div><strong id="totalStat">0</strong><span>已收录单词</span></div>
+          </article>
+          <article class="stat-card stat-today">
+            <span class="stat-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Z" /></svg>
+            </span>
+            <div><strong id="todayStat">0</strong><span>今天新添加</span></div>
+          </article>
+          <article class="stat-card stat-source">
+            <span class="stat-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M4 19.5V5a2 2 0 0 1 2-2h11l3 3v15H6a2 2 0 0 1-2-1.5Z" /><path d="M8 8h8M8 12h8M8 16h5" /></svg>
+            </span>
+            <div><strong id="sourceStat">0</strong><span>阅读来源</span></div>
+          </article>
+        </section>
+
+        <section class="collection-section">
+          <div class="collection-heading">
+            <div>
+              <h2>词语收藏</h2>
+              <p id="resultSummary">正在载入你的单词……</p>
+            </div>
+            <div class="view-controls" aria-label="列表显示方式">
+              <button class="icon-button active" type="button" title="卡片视图" aria-label="卡片视图">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="toolbar">
+            <label class="search-box" for="searchInput">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
+              <input id="searchInput" type="search" placeholder="搜索单词、释义、标签或 PDF……" autocomplete="off" />
+              <kbd>⌘ K</kbd>
+            </label>
+            <label class="select-wrap">
+              <span class="sr-only">标签筛选</span>
+              <select id="tagFilter">
+                <option value="">全部标签</option>
+              </select>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4" /></svg>
+            </label>
+            <label class="select-wrap">
+              <span class="sr-only">排序方式</span>
+              <select id="sortSelect">
+                <option value="updated-desc">最近更新</option>
+                <option value="created-desc">最近添加</option>
+                <option value="word-asc">字母顺序</option>
+              </select>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4" /></svg>
+            </label>
+          </div>
+
+          <div class="word-grid" id="wordGrid" aria-live="polite"></div>
+
+          <div class="empty-state" id="emptyState" hidden>
+            <span class="empty-illustration" aria-hidden="true">
+              <svg viewBox="0 0 120 120">
+                <path d="M31 29h58a8 8 0 0 1 8 8v64H39a8 8 0 0 1-8-8V29Z" />
+                <path d="M31 88V29a11 11 0 0 0-11 11v51a10 10 0 0 0 10 10h67" />
+                <path d="m51 61 8 8 16-20" />
+              </svg>
+            </span>
+            <h3 id="emptyTitle">这里还没有单词</h3>
+            <p id="emptyDescription">先手动添加第一个单词，之后也可以从 Edge 扩展快速收藏。</p>
+            <button class="secondary-button" id="emptyAddButton" type="button">添加第一个单词</button>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <dialog class="word-dialog" id="wordDialog">
+      <form id="wordForm" novalidate>
+        <div class="dialog-header">
+          <div>
+            <span class="dialog-kicker">WORD COLLECTION</span>
+            <h2 id="dialogTitle">添加新单词</h2>
+          </div>
+          <button class="dialog-close" id="closeDialogButton" type="button" aria-label="关闭">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+          </button>
+        </div>
+
+        <input id="wordId" type="hidden" />
+        <div class="form-grid">
+          <label class="field field-full">
+            <span>单词 <em>*</em></span>
+            <input id="wordInput" name="word" type="text" maxlength="100" placeholder="例如：serendipity" autocomplete="off" required />
+            <small class="field-error" data-error-for="word"></small>
+          </label>
+
+          <label class="field field-full">
+            <span>释义 <em>*</em></span>
+            <textarea id="meaningInput" name="meaning" maxlength="1000" rows="3" placeholder="写下容易记住的中文释义……" required></textarea>
+            <small class="field-error" data-error-for="meaning"></small>
+          </label>
+
+          <label class="field field-full">
+            <span>例句</span>
+            <textarea id="examplesInput" name="examples" rows="3" placeholder="每行一句例句"></textarea>
+            <small>每行保存为一条例句</small>
+          </label>
+
+          <label class="field">
+            <span>来源 PDF</span>
+            <input id="sourceInput" name="sourcePdf" type="text" maxlength="300" placeholder="paper-name.pdf" />
+          </label>
+
+          <label class="field field-page">
+            <span>页码</span>
+            <input id="pageInput" name="page" type="number" min="1" max="100000" placeholder="12" />
+            <small class="field-error" data-error-for="page"></small>
+          </label>
+
+          <label class="field field-full">
+            <span>标签</span>
+            <input id="tagsInput" name="tags" type="text" placeholder="论文, 神经网络, 第三章" />
+            <small>使用逗号分隔，最多 10 个标签</small>
+          </label>
+
+          <label class="field field-full">
+            <span>备注</span>
+            <textarea id="notesInput" name="notes" maxlength="2000" rows="2" placeholder="词根、联想或其它备注……"></textarea>
+          </label>
+        </div>
+
+        <div class="dialog-actions">
+          <button class="text-button" id="cancelDialogButton" type="button">取消</button>
+          <button class="primary-button submit-button" id="submitWordButton" type="submit">
+            <span>保存单词</span>
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="confirm-dialog" id="deleteDialog">
+      <div class="confirm-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" /></svg>
+      </div>
+      <h2>删除这个单词？</h2>
+      <p>“<strong id="deleteWordName"></strong>”将从单词本中移除，此操作无法撤销。</p>
+      <div class="confirm-actions">
+        <button class="text-button" id="cancelDeleteButton" type="button">取消</button>
+        <button class="danger-button" id="confirmDeleteButton" type="button">确认删除</button>
+      </div>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite">
+      <span class="toast-icon" aria-hidden="true">✓</span>
+      <span id="toastMessage">操作成功</span>
+    </div>
+  </body>
+</html>
