@@ -3,6 +3,8 @@ const state = {
   allTags: [],
   deletingWord: null,
   searchTimer: null,
+  mobileIndex: 0,
+  mobileExpanded: false,
 };
 
 const elements = {
@@ -40,6 +42,26 @@ const elements = {
   confirmDeleteButton: document.querySelector('#confirmDeleteButton'),
   toast: document.querySelector('#toast'),
   toastMessage: document.querySelector('#toastMessage'),
+  mobileHeaderTotal: document.querySelector('#mobileHeaderTotal'),
+  mobileLearningLoading: document.querySelector('#mobileLearningLoading'),
+  mobileLearningEmpty: document.querySelector('#mobileLearningEmpty'),
+  mobileStudyContent: document.querySelector('#mobileStudyContent'),
+  mobileWord: document.querySelector('#mobileWord'),
+  mobileExpandButton: document.querySelector('#mobileExpandButton'),
+  mobileProgress: document.querySelector('#mobileProgress'),
+  mobileNextButton: document.querySelector('#mobileNextButton'),
+  mobileRevealHint: document.querySelector('#mobileRevealHint'),
+  mobileWordDetails: document.querySelector('#mobileWordDetails'),
+  mobileMeaning: document.querySelector('#mobileMeaning'),
+  mobileExamplesSection: document.querySelector('#mobileExamplesSection'),
+  mobileExampleList: document.querySelector('#mobileExampleList'),
+  mobileNotesSection: document.querySelector('#mobileNotesSection'),
+  mobileNotes: document.querySelector('#mobileNotes'),
+  mobileSourceSection: document.querySelector('#mobileSourceSection'),
+  mobileSource: document.querySelector('#mobileSource'),
+  mobileTagsSection: document.querySelector('#mobileTagsSection'),
+  mobileTagList: document.querySelector('#mobileTagList'),
+  mobileAddedDate: document.querySelector('#mobileAddedDate'),
 };
 
 const icons = {
@@ -83,11 +105,74 @@ function sourceText(word) {
   return word.page ? `${word.sourcePdf} · 第 ${word.page} 页` : word.sourcePdf;
 }
 
+function renderMobileLearning() {
+  const total = state.words.length;
+  elements.mobileLearningLoading.hidden = true;
+  elements.mobileHeaderTotal.textContent = `${total} 词`;
+  elements.mobileLearningEmpty.hidden = total > 0;
+  elements.mobileStudyContent.hidden = total === 0;
+
+  if (!total) return;
+
+  state.mobileIndex = Math.min(Math.max(state.mobileIndex, 0), total - 1);
+  const word = state.words[state.mobileIndex];
+  const examples = word.examples || [];
+  const tags = word.tags || [];
+
+  elements.mobileWord.textContent = word.word;
+  elements.mobileMeaning.textContent = word.meaning;
+  elements.mobileProgress.textContent = `${state.mobileIndex + 1} / ${total}`;
+  elements.mobileNextButton.disabled = total < 2;
+
+  elements.mobileExampleList.replaceChildren();
+  examples.forEach((example) => {
+    elements.mobileExampleList.append(createElement('li', '', example));
+  });
+  elements.mobileExamplesSection.hidden = examples.length === 0;
+
+  elements.mobileNotes.textContent = word.notes || '';
+  elements.mobileNotesSection.hidden = !word.notes;
+
+  elements.mobileSource.textContent = sourceText(word);
+  elements.mobileSourceSection.hidden = !word.sourcePdf;
+
+  elements.mobileTagList.replaceChildren();
+  tags.forEach((tag) => elements.mobileTagList.append(createElement('span', '', tag)));
+  elements.mobileTagsSection.hidden = tags.length === 0;
+
+  elements.mobileAddedDate.textContent = `收录于 ${new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(new Date(word.createdAt))}`;
+
+  setMobileExpanded(state.mobileExpanded);
+}
+
+function setMobileExpanded(expanded) {
+  state.mobileExpanded = expanded;
+  elements.mobileWordDetails.hidden = !expanded;
+  elements.mobileRevealHint.hidden = expanded;
+  elements.mobileExpandButton.setAttribute('aria-expanded', String(expanded));
+  elements.mobileExpandButton.setAttribute('aria-label', expanded ? '隐藏单词详情' : '显示单词详情');
+  elements.mobileExpandButton.classList.toggle('expanded', expanded);
+  elements.mobileStudyContent.classList.toggle('details-open', expanded);
+}
+
+function showNextMobileWord() {
+  if (state.words.length < 2) return;
+  state.mobileIndex = (state.mobileIndex + 1) % state.words.length;
+  state.mobileExpanded = false;
+  renderMobileLearning();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 function renderWords() {
   elements.wordGrid.replaceChildren();
   const hasWords = state.words.length > 0;
   elements.wordGrid.hidden = !hasWords;
   elements.emptyState.hidden = hasWords;
+  renderMobileLearning();
 
   const hasFilters = Boolean(elements.searchInput.value.trim() || elements.tagFilter.value);
   elements.resultSummary.textContent = hasFilters
@@ -327,6 +412,8 @@ elements.searchInput.addEventListener('input', () => {
 });
 elements.tagFilter.addEventListener('change', () => loadWords());
 elements.sortSelect.addEventListener('change', () => loadWords());
+elements.mobileExpandButton.addEventListener('click', () => setMobileExpanded(!state.mobileExpanded));
+elements.mobileNextButton.addEventListener('click', showNextMobileWord);
 
 for (const dialog of [elements.wordDialog, elements.deleteDialog]) {
   dialog.addEventListener('click', (event) => {
@@ -336,6 +423,7 @@ for (const dialog of [elements.wordDialog, elements.deleteDialog]) {
 
 document.addEventListener('keydown', (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === 'k') {
+    if (window.matchMedia('(max-width: 700px), (max-width: 950px) and (pointer: coarse)').matches) return;
     event.preventDefault();
     elements.searchInput.focus();
   }

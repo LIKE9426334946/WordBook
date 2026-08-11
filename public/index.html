@@ -134,6 +134,94 @@
       </main>
     </div>
 
+    <section class="mobile-learning-view" id="mobileLearningView" aria-label="单词学习">
+      <header class="mobile-learning-header">
+        <span class="mobile-header-mark" aria-hidden="true">
+          <svg viewBox="0 0 40 40">
+            <path d="M11 10.5c4.5 0 7.5 1.5 9 4.3v16.1c-1.9-2.3-4.8-3.4-9-3.4V10.5Z" />
+            <path d="M29 10.5c-4.5 0-7.5 1.5-9 4.3v16.1c1.9-2.3 4.8-3.4 9-3.4V10.5Z" />
+          </svg>
+        </span>
+        <div>
+          <strong>单词学习</strong>
+          <small>WordBook</small>
+        </div>
+        <span class="mobile-header-total" id="mobileHeaderTotal">0 词</span>
+      </header>
+
+      <div class="mobile-learning-loading" id="mobileLearningLoading" aria-live="polite">
+        <span></span>
+        <p>正在准备今天的单词……</p>
+      </div>
+
+      <div class="mobile-learning-empty" id="mobileLearningEmpty" hidden>
+        <span class="mobile-empty-icon" aria-hidden="true">
+          <svg viewBox="0 0 40 40">
+            <path d="M10 8h18a4 4 0 0 1 4 4v22H14a4 4 0 0 1-4-4V8Z" />
+            <path d="M10 28V8a5 5 0 0 0-5 5v16a5 5 0 0 0 5 5h22" />
+          </svg>
+        </span>
+        <h1>还没有可学习的单词</h1>
+        <p>请在电脑端添加，或使用 Edge 插件收藏阅读时遇到的单词和短语。</p>
+      </div>
+
+      <main class="mobile-study-content" id="mobileStudyContent" hidden>
+        <article class="mobile-word-hero">
+          <span class="mobile-word-kind">WORD · PHRASE</span>
+          <h1 id="mobileWord">word</h1>
+          <button
+            class="mobile-expand-button"
+            id="mobileExpandButton"
+            type="button"
+            aria-expanded="false"
+            aria-controls="mobileWordDetails"
+            aria-label="显示单词详情"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9" /></svg>
+          </button>
+        </article>
+
+        <div class="mobile-word-actions">
+          <span id="mobileProgress">1 / 1</span>
+          <button id="mobileNextButton" type="button">
+            下一个单词
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5" /></svg>
+          </button>
+        </div>
+
+        <p class="mobile-reveal-hint" id="mobileRevealHint">点击上方箭头查看释义和其它信息</p>
+
+        <div class="mobile-word-details" id="mobileWordDetails" hidden>
+          <section class="mobile-detail-section">
+            <h2><span aria-hidden="true">译</span>释义</h2>
+            <p class="mobile-meaning" id="mobileMeaning"></p>
+          </section>
+
+          <section class="mobile-detail-section" id="mobileExamplesSection" hidden>
+            <h2><span aria-hidden="true">例</span>例句</h2>
+            <ol class="mobile-example-list" id="mobileExampleList"></ol>
+          </section>
+
+          <section class="mobile-detail-section" id="mobileNotesSection" hidden>
+            <h2><span aria-hidden="true">记</span>备注</h2>
+            <p id="mobileNotes"></p>
+          </section>
+
+          <section class="mobile-detail-section" id="mobileSourceSection" hidden>
+            <h2><span aria-hidden="true">源</span>阅读来源</h2>
+            <p id="mobileSource"></p>
+          </section>
+
+          <section class="mobile-detail-section" id="mobileTagsSection" hidden>
+            <h2><span aria-hidden="true">签</span>标签</h2>
+            <div class="mobile-tag-list" id="mobileTagList"></div>
+          </section>
+
+          <p class="mobile-added-date" id="mobileAddedDate"></p>
+        </div>
+      </main>
+    </section>
+
     <dialog class="word-dialog" id="wordDialog">
       <form id="wordForm" novalidate>
         <div class="dialog-header">
