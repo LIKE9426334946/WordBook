@@ -29,12 +29,17 @@
         </a>
 
         <nav class="side-nav" aria-label="主导航">
-          <button class="nav-item active" type="button">
+          <button class="nav-item active" id="allWordsNav" type="button" data-directory-id="">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M5 4.8A2.8 2.8 0 0 1 7.8 2H20v17H7.8A2.8 2.8 0 0 0 5 21.8V4.8Z" />
               <path d="M5 19V5a3 3 0 0 0-3 3v11a3 3 0 0 0 3 3h15" />
             </svg>
             全部单词
+          </button>
+          <div class="desktop-directory-list" id="desktopDirectoryList"></div>
+          <button class="manage-directories-button" id="manageDirectoriesButton" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h6l2 2h8v10H4V7Z" /><path d="M12 13v4M10 15h4" /></svg>
+            管理目录
           </button>
         </nav>
 
@@ -207,9 +212,12 @@
 
       <main class="mobile-list-view" id="mobileDirectoryView" hidden>
         <div class="mobile-list-heading">
-          <p>WORD DIRECTORY</p>
-          <h1>单词目录</h1>
-          <span>选择一个单词开始学习</span>
+          <button class="mobile-directory-back" id="mobileDirectoryBack" type="button" hidden>
+            <span aria-hidden="true">‹</span> 返回目录
+          </button>
+          <p id="mobileDirectoryEyebrow">WORD DIRECTORIES</p>
+          <h1 id="mobileDirectoryTitle">单词目录</h1>
+          <span id="mobileDirectoryDescription">选择一个目录开始复习</span>
           <button class="mobile-refresh-button" id="mobileRefreshButton" type="button" aria-label="加载服务器上的最新单词">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7" /><path d="M20 4v7h-7" /></svg>
             <span id="mobileRefreshLabel">刷新</span>
@@ -276,6 +284,11 @@
           </label>
 
           <label class="field field-full">
+            <span>所属目录</span>
+            <select id="directorySelect"></select>
+          </label>
+
+          <label class="field field-full">
             <span>释义 <em>*</em></span>
             <textarea id="meaningInput" name="meaning" maxlength="1000" rows="3" placeholder="写下容易记住的中文释义……" required></textarea>
             <small class="field-error" data-error-for="meaning"></small>
@@ -300,6 +313,35 @@
           </button>
         </div>
       </form>
+    </dialog>
+
+    <dialog class="word-dialog directory-dialog" id="directoryDialog">
+      <div class="directory-dialog-content">
+        <div class="dialog-header">
+          <div>
+            <span class="dialog-kicker">WORD DIRECTORIES</span>
+            <h2>管理目录</h2>
+          </div>
+          <button class="dialog-close" id="closeDirectoryDialogButton" type="button" aria-label="关闭">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+          </button>
+        </div>
+
+        <form class="directory-form" id="directoryForm" novalidate>
+          <input id="directoryId" type="hidden" />
+          <label class="field">
+            <span id="directoryFormLabel">新建目录</span>
+            <div class="directory-form-row">
+              <input id="directoryNameInput" type="text" maxlength="80" placeholder="例如：神经网络" autocomplete="off" required />
+              <button class="primary-button" id="submitDirectoryButton" type="submit">添加</button>
+              <button class="text-button" id="cancelDirectoryEditButton" type="button" hidden>取消编辑</button>
+            </div>
+            <small class="field-error" id="directoryNameError"></small>
+          </label>
+        </form>
+
+        <div class="directory-manager-list" id="directoryManagerList"></div>
+      </div>
     </dialog>
 
     <dialog class="confirm-dialog" id="deleteDialog">

@@ -72,6 +72,13 @@ svg { width: 1.25rem; height: 1.25rem; fill: none; stroke: currentColor; stroke-
 .nav-item { width: 100%; padding: 12px 14px; display: flex; gap: 11px; align-items: center; color: var(--ink-soft); background: transparent; border: 0; border-radius: 12px; font-weight: 650; text-align: left; }
 .nav-item.active { color: var(--pine-dark); background: rgba(255, 254, 250, 0.72); box-shadow: 0 5px 16px rgba(56, 66, 61, 0.05); }
 .nav-item svg { width: 19px; }
+.desktop-directory-list { display: grid; max-height: 31vh; gap: 3px; margin: 9px 0; overflow-y: auto; scrollbar-width: thin; }
+.desktop-directory-item { width: 100%; min-height: 38px; padding: 8px 12px 8px 18px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; color: #718079; background: transparent; border: 0; border-radius: 10px; text-align: left; }
+.desktop-directory-item:hover, .desktop-directory-item.active { color: var(--pine-dark); background: rgba(255, 254, 250, 0.58); }
+.desktop-directory-item span { overflow: hidden; font-size: 0.77rem; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.desktop-directory-item small { color: #9da49f; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.62rem; }
+.manage-directories-button { width: 100%; min-height: 40px; padding: 8px 13px; display: flex; align-items: center; gap: 9px; color: var(--pine); background: rgba(220, 233, 226, 0.62); border: 1px dashed rgba(49, 95, 80, 0.22); border-radius: 10px; font-size: 0.75rem; font-weight: 700; }
+.manage-directories-button svg { width: 17px; }
 
 .sidebar-note { margin-top: auto; padding: 18px; color: #53645d; background: rgba(220, 233, 226, 0.8); border: 1px solid rgba(49, 95, 80, 0.09); border-radius: var(--radius-md); }
 .sidebar-note p { margin: 8px 0 0; font-size: 0.78rem; line-height: 1.7; }
@@ -140,6 +147,7 @@ svg { width: 1.25rem; height: 1.25rem; fill: none; stroke: currentColor; stroke-
 .card-action.delete:hover { color: var(--rose); background: var(--rose-pale); }
 .card-action svg { width: 16px; }
 .meaning { min-height: 44px; margin: 11px 0 0; color: #4f5b56; font-size: 0.9rem; line-height: 1.65; white-space: pre-line; }
+.word-directory-badge { display: inline-flex; margin-top: 12px; padding: 4px 8px; color: var(--pine); background: var(--pine-pale); border-radius: 999px; font-size: 0.65rem; font-weight: 700; }
 .example { margin: 13px 0 0; padding-left: 12px; color: #7a827e; border-left: 2px solid var(--pine-pale); font-family: Georgia, serif; font-size: 0.78rem; font-style: italic; line-height: 1.55; }
 .notes-preview { margin: 15px 0 0; padding-top: 13px; color: #7a827e; border-top: 1px solid #efede6; font-size: 0.76rem; line-height: 1.6; white-space: pre-line; }
 
@@ -165,10 +173,11 @@ dialog::backdrop { background: rgba(25, 36, 32, 0.38); backdrop-filter: blur(5px
 .field-full { grid-column: 1 / -1; }
 .field > span { font-size: 0.75rem; font-weight: 720; }
 .field em { color: var(--rose); font-style: normal; }
-.field input, .field textarea { width: 100%; padding: 11px 13px; color: var(--ink); background: #faf9f5; border: 1px solid #dedbd2; border-radius: 10px; outline: 0; resize: vertical; transition: border 160ms ease, box-shadow 160ms ease; }
+.field input, .field textarea, .field select { width: 100%; padding: 11px 13px; color: var(--ink); background: #faf9f5; border: 1px solid #dedbd2; border-radius: 10px; outline: 0; resize: vertical; transition: border 160ms ease, box-shadow 160ms ease; }
 .field input { min-height: 43px; }
+.field select { min-height: 43px; }
 .field textarea { line-height: 1.55; }
-.field input:focus, .field textarea:focus { border-color: var(--sage); box-shadow: 0 0 0 3px rgba(49, 95, 80, 0.08); }
+.field input:focus, .field textarea:focus, .field select:focus { border-color: var(--sage); box-shadow: 0 0 0 3px rgba(49, 95, 80, 0.08); }
 .field.has-error input, .field.has-error textarea { border-color: var(--rose); }
 .field small { color: #9a9e9b; font-size: 0.66rem; }
 .field .field-error { min-height: 0; color: var(--rose); }
@@ -176,6 +185,22 @@ dialog::backdrop { background: rgba(25, 36, 32, 0.38); backdrop-filter: blur(5px
 .dialog-actions { margin-top: 29px; padding-top: 20px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #ece9e1; }
 .submit-button { min-width: 120px; }
 .submit-button:disabled { opacity: 0.7; cursor: wait; transform: none; }
+
+.directory-dialog { width: min(620px, calc(100% - 30px)); }
+.directory-dialog-content { padding: 31px; }
+.directory-form { margin-top: 25px; padding: 18px; background: #f7f5ef; border: 1px solid #e7e3da; border-radius: 14px; }
+.directory-form-row { display: flex; align-items: center; gap: 8px; }
+.directory-form-row .primary-button { min-width: 82px; flex: 0 0 auto; }
+.directory-form-row .text-button { min-width: 86px; flex: 0 0 auto; }
+.directory-manager-list { display: grid; max-height: min(390px, 44vh); gap: 8px; margin-top: 20px; overflow-y: auto; }
+.directory-manager-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 13px 14px; background: #fffefa; border: 1px solid #e6e2d9; border-radius: 12px; }
+.directory-manager-copy { min-width: 0; }
+.directory-manager-copy strong, .directory-manager-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.directory-manager-copy strong { font-size: 0.87rem; }
+.directory-manager-copy small { margin-top: 3px; color: #969d98; font-size: 0.68rem; }
+.directory-manager-actions { display: flex; gap: 4px; }
+.directory-manager-actions .card-action { opacity: 1; }
+.directory-manager-default { padding: 5px 8px; color: var(--pine); background: var(--pine-pale); border-radius: 999px; font-size: 0.62rem; font-weight: 700; }
 
 .confirm-dialog { width: min(410px, calc(100% - 30px)); padding: 31px; text-align: center; background: var(--surface); border: 0; border-radius: 20px; box-shadow: 0 30px 90px rgba(24, 35, 31, 0.25); }
 .confirm-icon { width: 56px; height: 56px; display: grid; place-items: center; margin: 0 auto; color: var(--rose); background: var(--rose-pale); border-radius: 50%; }
@@ -198,6 +223,7 @@ dialog::backdrop { background: rgba(25, 36, 32, 0.38); backdrop-filter: blur(5px
   .brand-mark { width: 40px; height: 40px; }
   .side-nav { margin: 0 0 0 auto; }
   .nav-item { width: auto; }
+  .desktop-directory-list, .manage-directories-button { display: none; }
   .sidebar-note, .sidebar-footer { display: none; }
   .main-content { width: 100%; padding: 35px 24px 55px; }
 }
@@ -609,6 +635,25 @@ dialog::backdrop { background: rgba(25, 36, 32, 0.38); backdrop-filter: blur(5px
     position: relative;
   }
 
+  .mobile-directory-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0 0 17px;
+    padding: 0;
+    color: #6d58dd;
+    background: transparent;
+    border: 0;
+    font-size: 12px;
+    font-weight: 750;
+  }
+
+  .mobile-directory-back > span {
+    font-size: 22px;
+    font-weight: 400;
+    line-height: 0.8;
+  }
+
   .mobile-list-heading p {
     margin: 0 0 7px;
     color: #8574e8;
@@ -689,6 +734,87 @@ dialog::backdrop { background: rgba(25, 36, 32, 0.38); backdrop-filter: blur(5px
     box-shadow: 0 8px 24px rgba(63, 52, 112, 0.045);
     content-visibility: auto;
     contain-intrinsic-size: auto 66px;
+  }
+
+  .mobile-directory-card {
+    position: relative;
+    display: grid;
+    min-width: 0;
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 13px;
+    padding: 16px;
+    border: 1px solid #e9e6ef;
+    border-radius: 17px;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 7px 22px rgba(63, 52, 112, 0.045);
+    content-visibility: auto;
+    contain-intrinsic-size: auto 80px;
+  }
+
+  .mobile-directory-review {
+    display: grid;
+    width: 46px;
+    height: 46px;
+    place-items: center;
+    align-self: center;
+    padding: 0;
+    border: 1px solid #e4defd;
+    border-radius: 12px;
+    color: #7462df;
+    background: #eeebff;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 11px;
+    font-weight: 750;
+    transition: color 150ms ease, background 150ms ease, border-color 150ms ease;
+  }
+
+  .mobile-directory-review.reviewed {
+    color: #28735b;
+    background: #def3e9;
+    border-color: #bce1d1;
+  }
+
+  .mobile-directory-open {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 0;
+    color: inherit;
+    background: transparent;
+    border: 0;
+    text-align: left;
+  }
+
+  .mobile-directory-copy {
+    min-width: 0;
+  }
+
+  .mobile-directory-copy strong,
+  .mobile-directory-copy small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-directory-copy strong {
+    color: #292631;
+    font-size: 16px;
+    letter-spacing: -0.02em;
+  }
+
+  .mobile-directory-copy small {
+    margin-top: 5px;
+    color: #9a96a2;
+    font-size: 11px;
+  }
+
+  .mobile-directory-arrow {
+    color: #aaa5b6;
+    font-size: 25px;
+    font-weight: 300;
   }
 
   .mobile-word-list-open {

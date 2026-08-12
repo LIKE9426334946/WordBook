@@ -39,6 +39,28 @@ test('mobile view includes directory, study and favorites navigation', () => {
   assert.match(styles, /position: fixed;/);
 });
 
+test('mobile directory uses server-managed groups with an independent local review toggle', () => {
+  for (const id of [
+    'mobileDirectoryBack',
+    'mobileDirectoryTitle',
+    'mobileDirectoryDescription',
+    'directorySelect',
+    'manageDirectoriesButton',
+    'directoryDialog',
+  ]) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+
+  assert.match(script, /wordbook\.mobile\.reviewed-directories\.v1/);
+  assert.match(script, /localStorage\.setItem\(\s*MOBILE_REVIEWED_DIRECTORIES_KEY/s);
+  assert.match(script, /function createMobileDirectoryItem\(directory, index\)/);
+  assert.match(script, /dataset\.mobileAction = 'toggle-directory-review'/);
+  assert.match(script, /dataset\.mobileAction = 'open-directory'/);
+  assert.match(script, /function toggleMobileDirectoryReviewed\(directoryId\)/);
+  assert.match(styles, /\.mobile-directory-review\.reviewed\s*\{/);
+  assert.match(styles, /background: #def3e9;/);
+});
+
 test('favorites stay local and do not add a server word field', () => {
   assert.match(html, /id="mobileFavoriteButton"/);
   assert.match(script, /wordbook\.mobile\.favorites\.v1/);
@@ -64,7 +86,7 @@ test('mobile details include only the supported learning fields', () => {
   assert.doesNotMatch(html, /id="mobile(?:Source|TagList|AddedDate)"/);
 
   assert.match(script, /function renderCurrentMobileWord\(\)/);
-  assert.match(script, /state\.mobileIndex = \(state\.mobileIndex \+ 1\) % state\.words\.length/);
+  assert.match(script, /state\.mobileIndex = \(state\.mobileIndex \+ 1\) % studyWords\.length/);
   assert.match(script, /setMobileExpanded\(!state\.mobileExpanded\)/);
 });
 
@@ -89,7 +111,7 @@ test('mobile rendering avoids rebuilding hidden or unchanged large lists', () =>
   assert.match(script, /if \(!state\.mobileFavoritesDirty\) return;/);
   assert.match(script, /createDocumentFragment\(\)/);
   assert.match(script, /mobileDirectoryList\.addEventListener\('click', handleMobileListClick\)/);
-  assert.match(script, /if \(mobileLayout\) applyMobileWords\(data\);\s*else \{/s);
+  assert.match(script, /if \(mobileLayout\) applyMobileWords\(data, meta\.directories \|\| \[\]\);\s*else \{/s);
   assert.match(styles, /content-visibility: auto;/);
 
   const mobileStylesStart = styles.indexOf('@media (max-width: 700px)');

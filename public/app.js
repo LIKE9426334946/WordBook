@@ -1,4 +1,5 @@
 const MOBILE_FAVORITES_KEY = 'wordbook.mobile.favorites.v1';
+const MOBILE_REVIEWED_DIRECTORIES_KEY = 'wordbook.mobile.reviewed-directories.v1';
 const MOBILE_LAYOUT_QUERY = '(max-width: 700px), (max-width: 950px) and (pointer: coarse)';
 
 function isMobileLayout() {
@@ -14,14 +15,29 @@ function loadMobileFavorites() {
   }
 }
 
+function loadMobileReviewedDirectories() {
+  try {
+    const value = JSON.parse(localStorage.getItem(MOBILE_REVIEWED_DIRECTORIES_KEY) || '[]');
+    return new Set(Array.isArray(value) ? value.filter((id) => typeof id === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
 const state = {
   words: [],
+  directories: [],
+  desktopDirectoryId: '',
+  editingDirectoryId: '',
   deletingWord: null,
   searchTimer: null,
   mobileIndex: 0,
   mobileExpanded: false,
   mobileView: 'study',
   mobileFavoriteIds: loadMobileFavorites(),
+  mobileReviewedDirectoryIds: loadMobileReviewedDirectories(),
+  mobileOpenDirectoryId: '',
+  mobileStudyDirectoryId: '',
   mobileDirectoryDirty: true,
   mobileFavoritesDirty: true,
 };
@@ -50,6 +66,20 @@ const elements = {
   meaningInput: document.querySelector('#meaningInput'),
   examplesInput: document.querySelector('#examplesInput'),
   notesInput: document.querySelector('#notesInput'),
+  directorySelect: document.querySelector('#directorySelect'),
+  allWordsNav: document.querySelector('#allWordsNav'),
+  desktopDirectoryList: document.querySelector('#desktopDirectoryList'),
+  manageDirectoriesButton: document.querySelector('#manageDirectoriesButton'),
+  directoryDialog: document.querySelector('#directoryDialog'),
+  closeDirectoryDialogButton: document.querySelector('#closeDirectoryDialogButton'),
+  directoryForm: document.querySelector('#directoryForm'),
+  directoryId: document.querySelector('#directoryId'),
+  directoryFormLabel: document.querySelector('#directoryFormLabel'),
+  directoryNameInput: document.querySelector('#directoryNameInput'),
+  directoryNameError: document.querySelector('#directoryNameError'),
+  submitDirectoryButton: document.querySelector('#submitDirectoryButton'),
+  cancelDirectoryEditButton: document.querySelector('#cancelDirectoryEditButton'),
+  directoryManagerList: document.querySelector('#directoryManagerList'),
   deleteDialog: document.querySelector('#deleteDialog'),
   deleteWordName: document.querySelector('#deleteWordName'),
   cancelDeleteButton: document.querySelector('#cancelDeleteButton'),
@@ -77,6 +107,10 @@ const elements = {
   mobileDirectoryView: document.querySelector('#mobileDirectoryView'),
   mobileDirectoryList: document.querySelector('#mobileDirectoryList'),
   mobileDirectoryEmpty: document.querySelector('#mobileDirectoryEmpty'),
+  mobileDirectoryBack: document.querySelector('#mobileDirectoryBack'),
+  mobileDirectoryEyebrow: document.querySelector('#mobileDirectoryEyebrow'),
+  mobileDirectoryTitle: document.querySelector('#mobileDirectoryTitle'),
+  mobileDirectoryDescription: document.querySelector('#mobileDirectoryDescription'),
   mobileRefreshButton: document.querySelector('#mobileRefreshButton'),
   mobileRefreshLabel: document.querySelector('#mobileRefreshLabel'),
   mobileFavoritesView: document.querySelector('#mobileFavoritesView'),
@@ -91,6 +125,7 @@ const elements = {
 const icons = {
   edit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.2-1 10.6-10.6a2 2 0 0 0-2.8-2.8L5.4 16.2 4 20Z"/><path d="m14.5 7.2 2.8 2.8"/></svg>',
   delete: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>',
+  folder: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h6l2 2h8v10H4V7Z"/></svg>',
 };
 
 async function apiFetch(url, options = {}) {
@@ -123,8 +158,24 @@ function saveMobileFavorites() {
   localStorage.setItem(MOBILE_FAVORITES_KEY, JSON.stringify([...state.mobileFavoriteIds]));
 }
 
+function saveMobileReviewedDirectories() {
+  localStorage.setItem(
+    MOBILE_REVIEWED_DIRECTORIES_KEY,
+    JSON.stringify([...state.mobileReviewedDirectoryIds]),
+  );
+}
+
 function getMobileFavorites() {
   return state.words.filter((word) => state.mobileFavoriteIds.has(word.id));
+}
+
+function getMobileStudyWords() {
+  if (!state.mobileStudyDirectoryId) return state.words;
+  return state.words.filter((word) => word.directoryId === state.mobileStudyDirectoryId);
+}
+
+function getOpenMobileDirectory() {
+  return state.directories.find((directory) => directory.id === state.mobileOpenDirectoryId) || null;
 }
 
 function updateMobileNavigation() {
@@ -138,9 +189,14 @@ function updateMobileNavigation() {
   elements.mobileHeaderSubtitle.textContent = subtitle;
 
   const favoriteCount = getMobileFavorites().length;
+  const openDirectory = getOpenMobileDirectory();
   elements.mobileHeaderTotal.textContent = state.mobileView === 'favorites'
     ? `${favoriteCount} 收藏`
-    : `${state.words.length} 词`;
+    : state.mobileView === 'directory' && !openDirectory
+      ? `${state.directories.length} 目录`
+      : state.mobileView === 'directory'
+        ? `${openDirectory.wordCount} 词`
+        : `${getMobileStudyWords().length} 词`;
 
   for (const button of [elements.mobileDirectoryTab, elements.mobileStudyTab, elements.mobileFavoritesTab]) {
     const active = button.dataset.mobileView === state.mobileView;
@@ -180,16 +236,72 @@ function createMobileListItem(word, index, favoriteList = false) {
   return item;
 }
 
+function createMobileDirectoryItem(directory, index) {
+  const item = createElement('li', 'mobile-directory-card');
+  const reviewed = state.mobileReviewedDirectoryIds.has(directory.id);
+  const reviewButton = createElement(
+    'button',
+    `mobile-directory-review${reviewed ? ' reviewed' : ''}`,
+    String(index + 1).padStart(2, '0'),
+  );
+  reviewButton.type = 'button';
+  reviewButton.dataset.mobileAction = 'toggle-directory-review';
+  reviewButton.dataset.directoryId = directory.id;
+  reviewButton.setAttribute('aria-pressed', String(reviewed));
+  reviewButton.setAttribute(
+    'aria-label',
+    reviewed ? `取消 ${directory.name} 的已复习标记` : `标记 ${directory.name} 为已复习`,
+  );
+
+  const openButton = createElement('button', 'mobile-directory-open');
+  openButton.type = 'button';
+  openButton.dataset.mobileAction = 'open-directory';
+  openButton.dataset.directoryId = directory.id;
+  openButton.setAttribute('aria-label', `打开目录 ${directory.name}`);
+  const copy = createElement('span', 'mobile-directory-copy');
+  copy.append(
+    createElement('strong', '', directory.name),
+    createElement('small', '', `${directory.wordCount} 个单词`),
+  );
+  openButton.append(copy, createElement('span', 'mobile-directory-arrow', '›'));
+  item.append(reviewButton, openButton);
+  return item;
+}
+
 function renderMobileDirectory() {
   if (!state.mobileDirectoryDirty) return;
 
   const fragment = document.createDocumentFragment();
-  state.words.forEach((word, index) => {
-    fragment.append(createMobileListItem(word, index));
-  });
+  const openDirectory = getOpenMobileDirectory();
+  const items = openDirectory
+    ? state.words.filter((word) => word.directoryId === openDirectory.id)
+    : state.directories;
+
+  if (openDirectory) {
+    items.forEach((word, index) => fragment.append(createMobileListItem(word, index)));
+    elements.mobileDirectoryBack.hidden = false;
+    elements.mobileDirectoryEyebrow.textContent = 'DIRECTORY WORDS';
+    elements.mobileDirectoryTitle.textContent = openDirectory.name;
+    elements.mobileDirectoryDescription.textContent = `共 ${items.length} 个单词，选择一个开始学习`;
+  } else {
+    items.forEach((directory, index) => fragment.append(createMobileDirectoryItem(directory, index)));
+    elements.mobileDirectoryBack.hidden = true;
+    elements.mobileDirectoryEyebrow.textContent = 'WORD DIRECTORIES';
+    elements.mobileDirectoryTitle.textContent = '单词目录';
+    elements.mobileDirectoryDescription.textContent = '点击编号标记已复习，点击目录查看单词';
+  }
+
   elements.mobileDirectoryList.replaceChildren(fragment);
-  elements.mobileDirectoryEmpty.hidden = state.words.length > 0;
-  elements.mobileDirectoryList.hidden = state.words.length === 0;
+  elements.mobileDirectoryEmpty.hidden = items.length > 0;
+  elements.mobileDirectoryList.hidden = items.length === 0;
+  if (!items.length) {
+    const title = elements.mobileDirectoryEmpty.querySelector('h2');
+    const description = elements.mobileDirectoryEmpty.querySelector('p');
+    title.textContent = openDirectory ? '这个目录还是空的' : '目录还是空的';
+    description.textContent = openDirectory
+      ? '请在电脑端把单词移动到这个目录。'
+      : '请先在电脑端创建目录并录入学习内容。';
+  }
   state.mobileDirectoryDirty = false;
 }
 
@@ -211,7 +323,7 @@ function renderMobileFavorites() {
 }
 
 function updateMobileViewVisibility() {
-  const total = state.words.length;
+  const total = getMobileStudyWords().length;
   elements.mobileLearningLoading.hidden = true;
   const showingStudy = state.mobileView === 'study';
   elements.mobileLearningEmpty.hidden = !showingStudy || total > 0;
@@ -231,12 +343,13 @@ function updateMobileFavoriteButton(word) {
 }
 
 function renderCurrentMobileWord() {
-  const total = state.words.length;
+  const studyWords = getMobileStudyWords();
+  const total = studyWords.length;
 
   if (!total) return;
 
   state.mobileIndex = Math.min(Math.max(state.mobileIndex, 0), total - 1);
-  const word = state.words[state.mobileIndex];
+  const word = studyWords[state.mobileIndex];
   const examples = word.examples || [];
 
   elements.mobileWord.textContent = word.word;
@@ -267,21 +380,35 @@ function renderActiveMobileView() {
   else renderCurrentMobileWord();
 }
 
-function applyMobileWords(words) {
-  const currentWordId = state.words[state.mobileIndex]?.id;
+function applyMobileWords(words, directories = state.directories) {
+  const currentWordId = getMobileStudyWords()[state.mobileIndex]?.id;
   state.words = words;
+  state.directories = directories;
+  if (state.mobileOpenDirectoryId
+      && !directories.some((directory) => directory.id === state.mobileOpenDirectoryId)) {
+    state.mobileOpenDirectoryId = '';
+  }
+  if (state.mobileStudyDirectoryId
+      && !directories.some((directory) => directory.id === state.mobileStudyDirectoryId)) {
+    state.mobileStudyDirectoryId = '';
+  }
+  const studyWords = getMobileStudyWords();
   const preservedIndex = currentWordId
-    ? words.findIndex((word) => word.id === currentWordId)
+    ? studyWords.findIndex((word) => word.id === currentWordId)
     : -1;
   state.mobileIndex = preservedIndex >= 0
     ? preservedIndex
-    : Math.min(state.mobileIndex, Math.max(words.length - 1, 0));
+    : Math.min(state.mobileIndex, Math.max(studyWords.length - 1, 0));
   state.mobileDirectoryDirty = true;
   state.mobileFavoritesDirty = true;
   renderActiveMobileView();
 }
 
 function setMobileView(view) {
+  if (view === 'directory') {
+    state.mobileOpenDirectoryId = '';
+    state.mobileDirectoryDirty = true;
+  }
   state.mobileView = view;
   state.mobileExpanded = false;
   renderActiveMobileView();
@@ -289,10 +416,38 @@ function setMobileView(view) {
 }
 
 function openMobileWord(wordId) {
-  const wordIndex = state.words.findIndex((word) => word.id === wordId);
+  if (state.mobileOpenDirectoryId) state.mobileStudyDirectoryId = state.mobileOpenDirectoryId;
+  else state.mobileStudyDirectoryId = '';
+  const wordIndex = getMobileStudyWords().findIndex((word) => word.id === wordId);
   if (wordIndex < 0) return;
   state.mobileIndex = wordIndex;
   setMobileView('study');
+}
+
+function openMobileDirectory(directoryId) {
+  if (!state.directories.some((directory) => directory.id === directoryId)) return;
+  state.mobileOpenDirectoryId = directoryId;
+  state.mobileDirectoryDirty = true;
+  renderActiveMobileView();
+  window.scrollTo({ top: 0, behavior: 'auto' });
+}
+
+function closeMobileDirectory() {
+  state.mobileOpenDirectoryId = '';
+  state.mobileDirectoryDirty = true;
+  renderActiveMobileView();
+  window.scrollTo({ top: 0, behavior: 'auto' });
+}
+
+function toggleMobileDirectoryReviewed(directoryId) {
+  if (state.mobileReviewedDirectoryIds.has(directoryId)) {
+    state.mobileReviewedDirectoryIds.delete(directoryId);
+  } else {
+    state.mobileReviewedDirectoryIds.add(directoryId);
+  }
+  saveMobileReviewedDirectories();
+  state.mobileDirectoryDirty = true;
+  renderMobileDirectory();
 }
 
 function toggleMobileFavorite(wordId) {
@@ -307,7 +462,7 @@ function toggleMobileFavorite(wordId) {
   state.mobileFavoritesDirty = true;
   updateMobileNavigation();
 
-  const currentWord = state.words[state.mobileIndex];
+  const currentWord = getMobileStudyWords()[state.mobileIndex];
   if (currentWord?.id === wordId) updateMobileFavoriteButton(currentWord);
   if (state.mobileView === 'favorites') renderMobileFavorites();
 }
@@ -323,11 +478,175 @@ function setMobileExpanded(expanded) {
 }
 
 function showNextMobileWord() {
-  if (state.words.length < 2) return;
-  state.mobileIndex = (state.mobileIndex + 1) % state.words.length;
+  const studyWords = getMobileStudyWords();
+  if (studyWords.length < 2) return;
+  state.mobileIndex = (state.mobileIndex + 1) % studyWords.length;
   state.mobileExpanded = false;
   renderCurrentMobileWord();
   window.scrollTo({ top: 0, behavior: 'auto' });
+}
+
+function renderDirectoryOptions(selectedId = '') {
+  const currentValue = selectedId || elements.directorySelect.value;
+  const fragment = document.createDocumentFragment();
+  state.directories.forEach((directory) => {
+    const option = createElement('option', '', directory.name);
+    option.value = directory.id;
+    fragment.append(option);
+  });
+  elements.directorySelect.replaceChildren(fragment);
+  elements.directorySelect.value = state.directories.some((directory) => directory.id === currentValue)
+    ? currentValue
+    : state.directories[0]?.id || '';
+}
+
+function renderDesktopDirectoryNavigation() {
+  elements.allWordsNav.classList.toggle('active', !state.desktopDirectoryId);
+  const fragment = document.createDocumentFragment();
+  state.directories.forEach((directory) => {
+    const button = createElement('button', 'desktop-directory-item');
+    button.type = 'button';
+    button.dataset.directoryId = directory.id;
+    button.classList.toggle('active', state.desktopDirectoryId === directory.id);
+    button.append(
+      createElement('span', '', directory.name),
+      createElement('small', '', directory.wordCount),
+    );
+    fragment.append(button);
+  });
+  elements.desktopDirectoryList.replaceChildren(fragment);
+  renderDirectoryOptions();
+}
+
+function renderDirectoryManager() {
+  const fragment = document.createDocumentFragment();
+  state.directories.forEach((directory) => {
+    const item = createElement('div', 'directory-manager-item');
+    const copy = createElement('div', 'directory-manager-copy');
+    copy.append(
+      createElement('strong', '', directory.name),
+      createElement('small', '', `${directory.wordCount} 个单词`),
+    );
+    const actions = createElement('div', 'directory-manager-actions');
+
+    const editButton = createElement('button', 'card-action');
+    editButton.type = 'button';
+    editButton.dataset.directoryAction = 'edit';
+    editButton.dataset.directoryId = directory.id;
+    editButton.setAttribute('aria-label', `重命名 ${directory.name}`);
+    editButton.innerHTML = icons.edit;
+    actions.append(editButton);
+
+    if (directory.id === 'default') {
+      actions.append(createElement('span', 'directory-manager-default', '默认'));
+    } else {
+      const deleteButton = createElement('button', 'card-action delete');
+      deleteButton.type = 'button';
+      deleteButton.dataset.directoryAction = 'delete';
+      deleteButton.dataset.directoryId = directory.id;
+      deleteButton.setAttribute('aria-label', `删除 ${directory.name}`);
+      deleteButton.innerHTML = icons.delete;
+      actions.append(deleteButton);
+    }
+
+    item.append(copy, actions);
+    fragment.append(item);
+  });
+  elements.directoryManagerList.replaceChildren(fragment);
+}
+
+function applyDirectories(directories) {
+  state.directories = directories;
+  if (state.desktopDirectoryId
+      && !directories.some((directory) => directory.id === state.desktopDirectoryId)) {
+    state.desktopDirectoryId = '';
+  }
+  renderDesktopDirectoryNavigation();
+  if (elements.directoryDialog.open) renderDirectoryManager();
+}
+
+function setDesktopDirectory(directoryId) {
+  if (state.desktopDirectoryId === directoryId) return;
+  state.desktopDirectoryId = directoryId;
+  loadWords();
+}
+
+function resetDirectoryForm() {
+  state.editingDirectoryId = '';
+  elements.directoryId.value = '';
+  elements.directoryNameInput.value = '';
+  elements.directoryNameError.textContent = '';
+  elements.directoryFormLabel.textContent = '新建目录';
+  elements.submitDirectoryButton.textContent = '添加';
+  elements.cancelDirectoryEditButton.hidden = true;
+}
+
+function openDirectoryDialog() {
+  resetDirectoryForm();
+  renderDirectoryManager();
+  elements.directoryDialog.showModal();
+  requestAnimationFrame(() => elements.directoryNameInput.focus());
+}
+
+function startDirectoryEdit(directoryId) {
+  const directory = state.directories.find((item) => item.id === directoryId);
+  if (!directory) return;
+  state.editingDirectoryId = directory.id;
+  elements.directoryId.value = directory.id;
+  elements.directoryNameInput.value = directory.name;
+  elements.directoryNameError.textContent = '';
+  elements.directoryFormLabel.textContent = '重命名目录';
+  elements.submitDirectoryButton.textContent = '保存';
+  elements.cancelDirectoryEditButton.hidden = false;
+  elements.directoryNameInput.focus();
+  elements.directoryNameInput.select();
+}
+
+async function submitDirectory(event) {
+  event.preventDefault();
+  const name = elements.directoryNameInput.value.trim();
+  if (!name) {
+    elements.directoryNameError.textContent = '请输入目录名称';
+    return;
+  }
+
+  const id = state.editingDirectoryId;
+  elements.submitDirectoryButton.disabled = true;
+  try {
+    const result = await apiFetch(id ? `/api/directories/${id}` : '/api/directories', {
+      method: id ? 'PUT' : 'POST',
+      body: JSON.stringify({ name }),
+    });
+    showToast(result.message);
+    resetDirectoryForm();
+    await loadWords();
+  } catch (error) {
+    elements.directoryNameError.textContent = error.message;
+  } finally {
+    elements.submitDirectoryButton.disabled = false;
+  }
+}
+
+async function deleteDirectory(directoryId) {
+  const directory = state.directories.find((item) => item.id === directoryId);
+  if (!directory || directory.id === 'default') return;
+  if (!window.confirm(`删除“${directory.name}”目录？其中单词会移入默认目录。`)) return;
+
+  try {
+    const result = await apiFetch(`/api/directories/${directory.id}`, { method: 'DELETE' });
+    showToast(result.message);
+    if (state.desktopDirectoryId === directory.id) state.desktopDirectoryId = '';
+    await loadWords();
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
+}
+
+function handleDirectoryManagerClick(event) {
+  const button = event.target.closest('[data-directory-action]');
+  if (!button) return;
+  if (button.dataset.directoryAction === 'edit') startDirectoryEdit(button.dataset.directoryId);
+  else if (button.dataset.directoryAction === 'delete') deleteDirectory(button.dataset.directoryId);
 }
 
 function renderDesktopWords() {
@@ -336,7 +655,7 @@ function renderDesktopWords() {
   elements.wordGrid.hidden = !hasWords;
   elements.emptyState.hidden = hasWords;
 
-  const hasFilters = Boolean(elements.searchInput.value.trim());
+  const hasFilters = Boolean(elements.searchInput.value.trim() || state.desktopDirectoryId);
   elements.resultSummary.textContent = hasFilters
     ? `找到 ${state.words.length} 个符合条件的单词`
     : `共 ${state.words.length} 个单词，按你的阅读节奏慢慢积累`;
@@ -378,6 +697,9 @@ function renderDesktopWords() {
     const meaning = createElement('p', 'meaning', word.meaning);
     card.append(header, meaning);
 
+    const directory = state.directories.find((item) => item.id === word.directoryId);
+    if (directory) card.append(createElement('span', 'word-directory-badge', directory.name));
+
     if (word.examples?.length) {
       card.append(createElement('p', 'example', `“${word.examples[0]}”`));
     }
@@ -408,11 +730,13 @@ async function loadWords() {
       : {
           q: elements.searchInput.value.trim(),
           sort: elements.sortSelect.value,
+          ...(state.desktopDirectoryId ? { directoryId: state.desktopDirectoryId } : {}),
         });
-    const { data } = await apiFetch(`/api/words?${params}`);
-    if (mobileLayout) applyMobileWords(data);
+    const { data, meta } = await apiFetch(`/api/words?${params}`);
+    if (mobileLayout) applyMobileWords(data, meta.directories || []);
     else {
       state.words = data;
+      applyDirectories(meta.directories || []);
       renderDesktopWords();
     }
   } catch (error) {
@@ -435,8 +759,8 @@ async function refreshMobileWords() {
       sort: 'updated-desc',
       refresh: Date.now().toString(),
     });
-    const { data } = await apiFetch(`/api/words?${params}`, { cache: 'no-store' });
-    applyMobileWords(data);
+    const { data, meta } = await apiFetch(`/api/words?${params}`, { cache: 'no-store' });
+    applyMobileWords(data, meta.directories || []);
     showToast(`已加载最新内容，共 ${data.length} 个单词`);
   } catch (error) {
     showToast(`刷新失败，仍显示原有内容：${error.message}`, 'error');
@@ -449,6 +773,16 @@ async function refreshMobileWords() {
 }
 
 function handleMobileListClick(event) {
+  const directoryAction = event.target.closest('[data-mobile-action^="toggle-directory"], [data-mobile-action="open-directory"]');
+  if (directoryAction) {
+    if (directoryAction.dataset.mobileAction === 'toggle-directory-review') {
+      toggleMobileDirectoryReviewed(directoryAction.dataset.directoryId);
+    } else {
+      openMobileDirectory(directoryAction.dataset.directoryId);
+    }
+    return;
+  }
+
   const actionButton = event.target.closest('[data-mobile-action="unfavorite"]');
   if (actionButton) {
     toggleMobileFavorite(actionButton.dataset.wordId);
@@ -483,6 +817,7 @@ function openWordDialog(word = null) {
   elements.meaningInput.value = word?.meaning || '';
   elements.examplesInput.value = word?.examples?.join('\n') || '';
   elements.notesInput.value = word?.notes || '';
+  renderDirectoryOptions(word?.directoryId || state.desktopDirectoryId || 'default');
   elements.wordDialog.showModal();
   requestAnimationFrame(() => elements.wordInput.focus());
 }
@@ -497,6 +832,7 @@ function formPayload() {
     meaning: elements.meaningInput.value,
     examples: elements.examplesInput.value,
     notes: elements.notesInput.value,
+    directoryId: elements.directorySelect.value,
   };
 }
 
@@ -568,6 +904,16 @@ function setTodayLabel() {
 
 elements.addWordButton.addEventListener('click', () => openWordDialog());
 elements.emptyAddButton.addEventListener('click', () => openWordDialog());
+elements.allWordsNav.addEventListener('click', () => setDesktopDirectory(''));
+elements.desktopDirectoryList.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-directory-id]');
+  if (button) setDesktopDirectory(button.dataset.directoryId);
+});
+elements.manageDirectoriesButton.addEventListener('click', openDirectoryDialog);
+elements.closeDirectoryDialogButton.addEventListener('click', () => elements.directoryDialog.close());
+elements.directoryForm.addEventListener('submit', submitDirectory);
+elements.cancelDirectoryEditButton.addEventListener('click', resetDirectoryForm);
+elements.directoryManagerList.addEventListener('click', handleDirectoryManagerClick);
 elements.closeDialogButton.addEventListener('click', closeWordDialog);
 elements.cancelDialogButton.addEventListener('click', closeWordDialog);
 elements.wordForm.addEventListener('submit', submitWord);
@@ -581,17 +927,18 @@ elements.sortSelect.addEventListener('change', () => loadWords());
 elements.mobileExpandButton.addEventListener('click', () => setMobileExpanded(!state.mobileExpanded));
 elements.mobileNextButton.addEventListener('click', showNextMobileWord);
 elements.mobileFavoriteButton.addEventListener('click', () => {
-  const word = state.words[state.mobileIndex];
+  const word = getMobileStudyWords()[state.mobileIndex];
   if (word) toggleMobileFavorite(word.id);
 });
 elements.mobileDirectoryTab.addEventListener('click', () => setMobileView('directory'));
 elements.mobileStudyTab.addEventListener('click', () => setMobileView('study'));
 elements.mobileFavoritesTab.addEventListener('click', () => setMobileView('favorites'));
 elements.mobileRefreshButton.addEventListener('click', refreshMobileWords);
+elements.mobileDirectoryBack.addEventListener('click', closeMobileDirectory);
 elements.mobileDirectoryList.addEventListener('click', handleMobileListClick);
 elements.mobileFavoritesList.addEventListener('click', handleMobileListClick);
 
-for (const dialog of [elements.wordDialog, elements.deleteDialog]) {
+for (const dialog of [elements.wordDialog, elements.directoryDialog, elements.deleteDialog]) {
   dialog.addEventListener('click', (event) => {
     if (event.target === dialog) dialog.close();
   });

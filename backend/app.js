@@ -8,6 +8,8 @@ const MAX_TEXT_LENGTH = {
   word: 100,
   meaning: 1000,
   notes: 2000,
+  directoryId: 100,
+  directoryName: 80,
 };
 
 function cleanText(value, maximumLength) {
@@ -43,6 +45,7 @@ function validateWordPayload(body = {}) {
     maximumLength: 500,
     splitLines: true,
   });
+  const directoryId = cleanText(body.directoryId, MAX_TEXT_LENGTH.directoryId);
 
   const errors = [];
   if (!word) errors.push({ field: 'word', message: '请输入单词' });
@@ -56,7 +59,19 @@ function validateWordPayload(body = {}) {
     throw error;
   }
 
-  return { word, meaning, examples, notes };
+  return { word, meaning, examples, notes, directoryId };
+}
+
+function validateDirectoryPayload(body = {}) {
+  const name = cleanText(body.name, MAX_TEXT_LENGTH.directoryName);
+  if (!name) {
+    const error = new Error('请输入目录名称');
+    error.status = 400;
+    error.code = 'VALIDATION_ERROR';
+    error.details = [{ field: 'directoryName', message: '请输入目录名称' }];
+    throw error;
+  }
+  return { name };
 }
 
 function safeTokenEquals(providedToken, expectedToken) {
@@ -103,8 +118,52 @@ function createApp({
   app.get('/api/words', (request, response) => {
     const query = cleanText(request.query.q, 200);
     const sort = cleanText(request.query.sort, 30);
-    const words = store.list({ query, sort });
-    response.json({ data: words, meta: { total: words.length, query, sort } });
+    const directoryId = cleanText(request.query.directoryId, MAX_TEXT_LENGTH.directoryId);
+    const words = store.list({ query, sort, directoryId });
+    response.json({
+      data: words,
+      meta: {
+        total: words.length,
+        query,
+        sort,
+        directoryId,
+        directories: store.listDirectories(),
+      },
+    });
+  });
+
+  app.get('/api/directories', (request, response) => {
+    response.json({ data: store.listDirectories() });
+  });
+
+  app.post('/api/directories', (request, response, next) => {
+    try {
+      const directory = store.createDirectory(validateDirectoryPayload(request.body));
+      response.status(201).json({ data: directory, message: '目录已创建' });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.put('/api/directories/:id', (request, response, next) => {
+    try {
+      const directory = store.updateDirectory(
+        request.params.id,
+        validateDirectoryPayload(request.body),
+      );
+      response.json({ data: directory, message: '目录已更新' });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete('/api/directories/:id', (request, response, next) => {
+    try {
+      const directory = store.deleteDirectory(request.params.id);
+      response.json({ data: directory, message: '目录已删除，其中单词已移入默认目录' });
+    } catch (error) {
+      next(error);
+    }
   });
 
   app.get('/api/words/:id', (request, response) => {
@@ -177,7 +236,9 @@ function createApp({
     if (response.headersSent) return next(error);
 
     if (error instanceof StoreError) {
-      const status = error.code === 'WORD_EXISTS' ? 409 : 404;
+      const status = ['WORD_EXISTS', 'DIRECTORY_EXISTS'].includes(error.code)
+        ? 409
+        : error.code === 'DEFAULT_DIRECTORY' ? 400 : 404;
       return response.status(status).json({
         error: { code: error.code, message: error.message, existing: error.details },
       });
@@ -203,4 +264,4 @@ function createApp({
   return app;
 }
 
-module.exports = { createApp, validateWordPayload };
+module.exports = { createApp, validateDirectoryPayload, validateWordPayload };
