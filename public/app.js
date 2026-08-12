@@ -1,4 +1,9 @@
 const MOBILE_FAVORITES_KEY = 'wordbook.mobile.favorites.v1';
+const MOBILE_LAYOUT_QUERY = '(max-width: 700px), (max-width: 950px) and (pointer: coarse)';
+
+function isMobileLayout() {
+  return window.matchMedia(MOBILE_LAYOUT_QUERY).matches;
+}
 
 function loadMobileFavorites() {
   try {
@@ -17,6 +22,8 @@ const state = {
   mobileExpanded: false,
   mobileView: 'study',
   mobileFavoriteIds: loadMobileFavorites(),
+  mobileDirectoryDirty: true,
+  mobileFavoritesDirty: true,
 };
 
 const elements = {
@@ -70,6 +77,8 @@ const elements = {
   mobileDirectoryView: document.querySelector('#mobileDirectoryView'),
   mobileDirectoryList: document.querySelector('#mobileDirectoryList'),
   mobileDirectoryEmpty: document.querySelector('#mobileDirectoryEmpty'),
+  mobileRefreshButton: document.querySelector('#mobileRefreshButton'),
+  mobileRefreshLabel: document.querySelector('#mobileRefreshLabel'),
   mobileFavoritesView: document.querySelector('#mobileFavoritesView'),
   mobileFavoritesList: document.querySelector('#mobileFavoritesList'),
   mobileFavoritesEmpty: document.querySelector('#mobileFavoritesEmpty'),
@@ -145,6 +154,7 @@ function createMobileListItem(word, index, favoriteList = false) {
   const item = createElement('li', 'mobile-word-list-item');
   const openButton = createElement('button', 'mobile-word-list-open');
   openButton.type = 'button';
+  openButton.dataset.wordId = word.id;
   openButton.setAttribute('aria-label', `学习 ${word.word}`);
 
   const number = createElement('span', 'mobile-word-list-number', String(index + 1).padStart(2, '0'));
@@ -155,52 +165,73 @@ function createMobileListItem(word, index, favoriteList = false) {
   );
   const arrow = createElement('span', 'mobile-word-list-arrow', '›');
   openButton.append(number, copy, arrow);
-  openButton.addEventListener('click', () => openMobileWord(word.id));
   item.append(openButton);
 
   if (favoriteList) {
     const unFavoriteButton = createElement('button', 'mobile-list-favorite active');
     unFavoriteButton.type = 'button';
+    unFavoriteButton.dataset.mobileAction = 'unfavorite';
+    unFavoriteButton.dataset.wordId = word.id;
     unFavoriteButton.setAttribute('aria-label', `取消收藏 ${word.word}`);
     unFavoriteButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z" /></svg>';
-    unFavoriteButton.addEventListener('click', () => toggleMobileFavorite(word.id));
     item.append(unFavoriteButton);
   }
 
   return item;
 }
 
-function renderMobileLists() {
-  elements.mobileDirectoryList.replaceChildren();
+function renderMobileDirectory() {
+  if (!state.mobileDirectoryDirty) return;
+
+  const fragment = document.createDocumentFragment();
   state.words.forEach((word, index) => {
-    elements.mobileDirectoryList.append(createMobileListItem(word, index));
+    fragment.append(createMobileListItem(word, index));
   });
+  elements.mobileDirectoryList.replaceChildren(fragment);
   elements.mobileDirectoryEmpty.hidden = state.words.length > 0;
   elements.mobileDirectoryList.hidden = state.words.length === 0;
+  state.mobileDirectoryDirty = false;
+}
+
+function renderMobileFavorites() {
+  if (!state.mobileFavoritesDirty) return;
 
   const favorites = getMobileFavorites();
-  elements.mobileFavoritesList.replaceChildren();
+  const fragment = document.createDocumentFragment();
   favorites.forEach((word, index) => {
-    elements.mobileFavoritesList.append(createMobileListItem(word, index, true));
+    fragment.append(createMobileListItem(word, index, true));
   });
+  elements.mobileFavoritesList.replaceChildren(fragment);
   elements.mobileFavoritesEmpty.hidden = favorites.length > 0;
   elements.mobileFavoritesList.hidden = favorites.length === 0;
   elements.mobileFavoritesSummary.textContent = favorites.length
     ? `已收藏 ${favorites.length} 个单词，点击即可继续学习`
     : '收藏的单词会出现在这里';
+  state.mobileFavoritesDirty = false;
 }
 
-function renderMobileLearning() {
+function updateMobileViewVisibility() {
   const total = state.words.length;
   elements.mobileLearningLoading.hidden = true;
-  updateMobileNavigation();
-  renderMobileLists();
-
   const showingStudy = state.mobileView === 'study';
   elements.mobileLearningEmpty.hidden = !showingStudy || total > 0;
   elements.mobileStudyContent.hidden = !showingStudy || total === 0;
   elements.mobileDirectoryView.hidden = state.mobileView !== 'directory';
   elements.mobileFavoritesView.hidden = state.mobileView !== 'favorites';
+}
+
+function updateMobileFavoriteButton(word) {
+  const isFavorite = state.mobileFavoriteIds.has(word.id);
+  elements.mobileFavoriteButton.classList.toggle('active', isFavorite);
+  elements.mobileFavoriteButton.setAttribute('aria-pressed', String(isFavorite));
+  elements.mobileFavoriteButton.setAttribute(
+    'aria-label',
+    isFavorite ? `取消收藏 ${word.word}` : `收藏 ${word.word}`,
+  );
+}
+
+function renderCurrentMobileWord() {
+  const total = state.words.length;
 
   if (!total) return;
 
@@ -222,22 +253,39 @@ function renderMobileLearning() {
   elements.mobileNotes.textContent = word.notes || '';
   elements.mobileNotesSection.hidden = !word.notes;
 
-  const isFavorite = state.mobileFavoriteIds.has(word.id);
-  elements.mobileFavoriteButton.classList.toggle('active', isFavorite);
-  elements.mobileFavoriteButton.setAttribute('aria-pressed', String(isFavorite));
-  elements.mobileFavoriteButton.setAttribute(
-    'aria-label',
-    isFavorite ? `取消收藏 ${word.word}` : `收藏 ${word.word}`,
-  );
+  updateMobileFavoriteButton(word);
 
   setMobileExpanded(state.mobileExpanded);
+}
+
+function renderActiveMobileView() {
+  updateMobileNavigation();
+  updateMobileViewVisibility();
+
+  if (state.mobileView === 'directory') renderMobileDirectory();
+  else if (state.mobileView === 'favorites') renderMobileFavorites();
+  else renderCurrentMobileWord();
+}
+
+function applyMobileWords(words) {
+  const currentWordId = state.words[state.mobileIndex]?.id;
+  state.words = words;
+  const preservedIndex = currentWordId
+    ? words.findIndex((word) => word.id === currentWordId)
+    : -1;
+  state.mobileIndex = preservedIndex >= 0
+    ? preservedIndex
+    : Math.min(state.mobileIndex, Math.max(words.length - 1, 0));
+  state.mobileDirectoryDirty = true;
+  state.mobileFavoritesDirty = true;
+  renderActiveMobileView();
 }
 
 function setMobileView(view) {
   state.mobileView = view;
   state.mobileExpanded = false;
-  renderMobileLearning();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  renderActiveMobileView();
+  window.scrollTo({ top: 0, behavior: 'auto' });
 }
 
 function openMobileWord(wordId) {
@@ -256,7 +304,12 @@ function toggleMobileFavorite(wordId) {
     showToast('已加入收藏');
   }
   saveMobileFavorites();
-  renderMobileLearning();
+  state.mobileFavoritesDirty = true;
+  updateMobileNavigation();
+
+  const currentWord = state.words[state.mobileIndex];
+  if (currentWord?.id === wordId) updateMobileFavoriteButton(currentWord);
+  if (state.mobileView === 'favorites') renderMobileFavorites();
 }
 
 function setMobileExpanded(expanded) {
@@ -273,16 +326,15 @@ function showNextMobileWord() {
   if (state.words.length < 2) return;
   state.mobileIndex = (state.mobileIndex + 1) % state.words.length;
   state.mobileExpanded = false;
-  renderMobileLearning();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  renderCurrentMobileWord();
+  window.scrollTo({ top: 0, behavior: 'auto' });
 }
 
-function renderWords() {
+function renderDesktopWords() {
   elements.wordGrid.replaceChildren();
   const hasWords = state.words.length > 0;
   elements.wordGrid.hidden = !hasWords;
   elements.emptyState.hidden = hasWords;
-  renderMobileLearning();
 
   const hasFilters = Boolean(elements.searchInput.value.trim());
   elements.resultSummary.textContent = hasFilters
@@ -350,17 +402,61 @@ async function loadStats() {
 
 async function loadWords() {
   try {
-    const params = new URLSearchParams({
-      q: elements.searchInput.value.trim(),
-      sort: elements.sortSelect.value,
-    });
+    const mobileLayout = isMobileLayout();
+    const params = new URLSearchParams(mobileLayout
+      ? { sort: 'updated-desc' }
+      : {
+          q: elements.searchInput.value.trim(),
+          sort: elements.sortSelect.value,
+        });
     const { data } = await apiFetch(`/api/words?${params}`);
-    state.words = data;
-    renderWords();
+    if (mobileLayout) applyMobileWords(data);
+    else {
+      state.words = data;
+      renderDesktopWords();
+    }
   } catch (error) {
     elements.resultSummary.textContent = '载入失败，请稍后刷新页面';
+    if (isMobileLayout()) elements.mobileLearningLoading.hidden = true;
     showToast(error.message, 'error');
   }
+}
+
+async function refreshMobileWords() {
+  if (elements.mobileRefreshButton.disabled) return;
+
+  elements.mobileRefreshButton.disabled = true;
+  elements.mobileRefreshButton.classList.add('refreshing');
+  elements.mobileRefreshButton.setAttribute('aria-busy', 'true');
+  elements.mobileRefreshLabel.textContent = '刷新中';
+
+  try {
+    const params = new URLSearchParams({
+      sort: 'updated-desc',
+      refresh: Date.now().toString(),
+    });
+    const { data } = await apiFetch(`/api/words?${params}`, { cache: 'no-store' });
+    applyMobileWords(data);
+    showToast(`已加载最新内容，共 ${data.length} 个单词`);
+  } catch (error) {
+    showToast(`刷新失败，仍显示原有内容：${error.message}`, 'error');
+  } finally {
+    elements.mobileRefreshButton.disabled = false;
+    elements.mobileRefreshButton.classList.remove('refreshing');
+    elements.mobileRefreshButton.removeAttribute('aria-busy');
+    elements.mobileRefreshLabel.textContent = '刷新';
+  }
+}
+
+function handleMobileListClick(event) {
+  const actionButton = event.target.closest('[data-mobile-action="unfavorite"]');
+  if (actionButton) {
+    toggleMobileFavorite(actionButton.dataset.wordId);
+    return;
+  }
+
+  const openButton = event.target.closest('.mobile-word-list-open');
+  if (openButton) openMobileWord(openButton.dataset.wordId);
 }
 
 function resetFormErrors() {
@@ -491,6 +587,9 @@ elements.mobileFavoriteButton.addEventListener('click', () => {
 elements.mobileDirectoryTab.addEventListener('click', () => setMobileView('directory'));
 elements.mobileStudyTab.addEventListener('click', () => setMobileView('study'));
 elements.mobileFavoritesTab.addEventListener('click', () => setMobileView('favorites'));
+elements.mobileRefreshButton.addEventListener('click', refreshMobileWords);
+elements.mobileDirectoryList.addEventListener('click', handleMobileListClick);
+elements.mobileFavoritesList.addEventListener('click', handleMobileListClick);
 
 for (const dialog of [elements.wordDialog, elements.deleteDialog]) {
   dialog.addEventListener('click', (event) => {
@@ -500,12 +599,14 @@ for (const dialog of [elements.wordDialog, elements.deleteDialog]) {
 
 document.addEventListener('keydown', (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === 'k') {
-    if (window.matchMedia('(max-width: 700px), (max-width: 950px) and (pointer: coarse)').matches) return;
+    if (isMobileLayout()) return;
     event.preventDefault();
     elements.searchInput.focus();
   }
 });
 
 setTodayLabel();
-elements.wordGrid.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
-Promise.all([loadWords(), loadStats()]);
+if (!isMobileLayout()) {
+  elements.wordGrid.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
+}
+Promise.all(isMobileLayout() ? [loadWords()] : [loadWords(), loadStats()]);

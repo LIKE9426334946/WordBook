@@ -235,8 +235,7 @@ dialog::backdrop { background: rgba(25, 36, 32, 0.38); backdrop-filter: blur(5px
     gap: 11px;
     padding: calc(11px + env(safe-area-inset-top)) 17px 11px;
     border-bottom: 1px solid #f0eff5;
-    background: rgba(255, 255, 255, 0.94);
-    backdrop-filter: blur(18px);
+    background: #fff;
   }
 
   .mobile-header-mark {
@@ -404,9 +403,8 @@ dialog::backdrop { background: rgba(25, 36, 32, 0.38); backdrop-filter: blur(5px
     border: 1px solid rgba(112, 91, 234, 0.13);
     border-radius: 50%;
     color: #938da8;
-    background: rgba(255, 255, 255, 0.74);
+    background: #fff;
     box-shadow: 0 7px 18px rgba(81, 65, 154, 0.08);
-    backdrop-filter: blur(10px);
   }
 
   .mobile-favorite-button svg {
@@ -607,6 +605,10 @@ dialog::backdrop { background: rgba(25, 36, 32, 0.38); backdrop-filter: blur(5px
     background: linear-gradient(180deg, #fbfaff 0, #fff 190px);
   }
 
+  .mobile-list-heading {
+    position: relative;
+  }
+
   .mobile-list-heading p {
     margin: 0 0 7px;
     color: #8574e8;
@@ -617,6 +619,7 @@ dialog::backdrop { background: rgba(25, 36, 32, 0.38); backdrop-filter: blur(5px
 
   .mobile-list-heading h1 {
     margin: 0;
+    padding-right: 88px;
     color: #201e28;
     font-size: 26px;
     letter-spacing: -0.045em;
@@ -627,6 +630,43 @@ dialog::backdrop { background: rgba(25, 36, 32, 0.38); backdrop-filter: blur(5px
     margin-top: 7px;
     color: #9995a4;
     font-size: 12px;
+  }
+
+  .mobile-refresh-button {
+    position: absolute;
+    top: 3px;
+    right: 0;
+    display: inline-flex;
+    min-width: 76px;
+    min-height: 38px;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 11px;
+    border: 1px solid #e7e3f7;
+    border-radius: 12px;
+    color: #6e59df;
+    background: #f2efff;
+    font-size: 12px;
+    font-weight: 750;
+  }
+
+  .mobile-refresh-button svg {
+    width: 16px;
+    height: 16px;
+    stroke-width: 2;
+  }
+
+  .mobile-refresh-button:disabled {
+    opacity: 0.62;
+  }
+
+  .mobile-refresh-button.refreshing svg {
+    animation: mobile-refresh-spin 700ms linear infinite;
+  }
+
+  @keyframes mobile-refresh-spin {
+    to { transform: rotate(360deg); }
   }
 
   .mobile-word-list {
@@ -647,6 +687,8 @@ dialog::backdrop { background: rgba(25, 36, 32, 0.38); backdrop-filter: blur(5px
     border-radius: 16px;
     background: rgba(255, 255, 255, 0.92);
     box-shadow: 0 8px 24px rgba(63, 52, 112, 0.045);
+    content-visibility: auto;
+    contain-intrinsic-size: auto 66px;
   }
 
   .mobile-word-list-open {
@@ -771,9 +813,8 @@ dialog::backdrop { background: rgba(25, 36, 32, 0.38); backdrop-filter: blur(5px
     align-items: end;
     padding: 5px 16px calc(8px + env(safe-area-inset-bottom));
     border-top: 1px solid #eeedf2;
-    background: rgba(255, 255, 255, 0.96);
+    background: #fff;
     box-shadow: 0 -8px 30px rgba(46, 39, 82, 0.055);
-    backdrop-filter: blur(18px);
   }
 
   .mobile-bottom-item {

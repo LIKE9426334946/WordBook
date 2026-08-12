@@ -63,9 +63,38 @@ test('mobile details include only the supported learning fields', () => {
 
   assert.doesNotMatch(html, /id="mobile(?:Source|TagList|AddedDate)"/);
 
-  assert.match(script, /function renderMobileLearning\(\)/);
+  assert.match(script, /function renderCurrentMobileWord\(\)/);
   assert.match(script, /state\.mobileIndex = \(state\.mobileIndex \+ 1\) % state\.words\.length/);
   assert.match(script, /setMobileExpanded\(!state\.mobileExpanded\)/);
+});
+
+test('directory refresh loads fresh server data only after a manual click', () => {
+  assert.match(html, /id="mobileRefreshButton"/);
+  assert.match(html, /id="mobileRefreshLabel">刷新</);
+  assert.match(script, /async function refreshMobileWords\(\)/);
+  assert.match(script, /cache: 'no-store'/);
+  assert.match(script, /refresh: Date\.now\(\)\.toString\(\)/);
+  assert.match(script, /mobileRefreshButton\.addEventListener\('click', refreshMobileWords\)/);
+  assert.doesNotMatch(script, /setInterval\s*\(/);
+});
+
+test('mobile rendering avoids rebuilding hidden or unchanged large lists', () => {
+  const nextWordStart = script.indexOf('function showNextMobileWord()');
+  const desktopRenderStart = script.indexOf('function renderDesktopWords()', nextWordStart);
+  const nextWordCode = script.slice(nextWordStart, desktopRenderStart);
+
+  assert.match(nextWordCode, /renderCurrentMobileWord\(\)/);
+  assert.doesNotMatch(nextWordCode, /renderMobileDirectory|renderMobileFavorites|renderDesktopWords/);
+  assert.match(script, /if \(!state\.mobileDirectoryDirty\) return;/);
+  assert.match(script, /if \(!state\.mobileFavoritesDirty\) return;/);
+  assert.match(script, /createDocumentFragment\(\)/);
+  assert.match(script, /mobileDirectoryList\.addEventListener\('click', handleMobileListClick\)/);
+  assert.match(script, /if \(mobileLayout\) applyMobileWords\(data\);\s*else \{/s);
+  assert.match(styles, /content-visibility: auto;/);
+
+  const mobileStylesStart = styles.indexOf('@media (max-width: 700px)');
+  const reducedMotionStart = styles.indexOf('@media (prefers-reduced-motion', mobileStylesStart);
+  assert.doesNotMatch(styles.slice(mobileStylesStart, reducedMotionStart), /backdrop-filter/);
 });
 
 test('mobile detail cards keep labels quieter than learning content', () => {
