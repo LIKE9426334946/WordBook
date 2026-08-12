@@ -130,8 +130,8 @@
           </svg>
         </span>
         <div>
-          <strong>单词学习</strong>
-          <small>WordBook</small>
+          <strong id="mobileHeaderTitle">单词学习</strong>
+          <small id="mobileHeaderSubtitle">WordBook</small>
         </div>
         <span class="mobile-header-total" id="mobileHeaderTotal">0 词</span>
       </header>
@@ -154,7 +154,15 @@
 
       <main class="mobile-study-content" id="mobileStudyContent" hidden>
         <article class="mobile-word-hero">
-          <span class="mobile-word-kind">WORD · PHRASE</span>
+          <button
+            class="mobile-favorite-button"
+            id="mobileFavoriteButton"
+            type="button"
+            aria-pressed="false"
+            aria-label="收藏当前单词"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z" /></svg>
+          </button>
           <h1 id="mobileWord">word</h1>
           <button
             class="mobile-expand-button"
@@ -196,6 +204,51 @@
 
         </div>
       </main>
+
+      <main class="mobile-list-view" id="mobileDirectoryView" hidden>
+        <div class="mobile-list-heading">
+          <p>WORD DIRECTORY</p>
+          <h1>单词目录</h1>
+          <span>选择一个单词开始学习</span>
+        </div>
+        <ol class="mobile-word-list" id="mobileDirectoryList"></ol>
+        <div class="mobile-list-empty" id="mobileDirectoryEmpty" hidden>
+          <span aria-hidden="true">☰</span>
+          <h2>目录还是空的</h2>
+          <p>请先在电脑端录入学习内容。</p>
+        </div>
+      </main>
+
+      <main class="mobile-list-view" id="mobileFavoritesView" hidden>
+        <div class="mobile-list-heading">
+          <p>FAVORITE WORDS</p>
+          <h1>我的收藏</h1>
+          <span id="mobileFavoritesSummary">收藏的单词会出现在这里</span>
+        </div>
+        <ul class="mobile-word-list mobile-favorites-list" id="mobileFavoritesList"></ul>
+        <div class="mobile-list-empty" id="mobileFavoritesEmpty" hidden>
+          <span aria-hidden="true">☆</span>
+          <h2>还没有收藏</h2>
+          <p>在学习页点击星形按钮，就能把单词收藏到这里。</p>
+        </div>
+      </main>
+
+      <nav class="mobile-bottom-nav" aria-label="手机端导航">
+        <button class="mobile-bottom-item" id="mobileDirectoryTab" type="button" data-mobile-view="directory">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11" /><circle cx="4.5" cy="6" r="1" /><circle cx="4.5" cy="12" r="1" /><circle cx="4.5" cy="18" r="1" /></svg>
+          <span>目录</span>
+        </button>
+        <button class="mobile-bottom-item mobile-study-tab active" id="mobileStudyTab" type="button" data-mobile-view="study" aria-current="page">
+          <span class="mobile-study-tab-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 8-4 4 4 4M15 8l4 4-4 4M13 5l-2 14" /></svg>
+          </span>
+          <span>学习</span>
+        </button>
+        <button class="mobile-bottom-item" id="mobileFavoritesTab" type="button" data-mobile-view="favorites">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z" /></svg>
+          <span>收藏</span>
+        </button>
+      </nav>
     </section>
 
     <dialog class="word-dialog" id="wordDialog">

@@ -17,7 +17,39 @@ test('mobile view is a study-only surface', () => {
   assert.match(mobileMarkup, /id="mobileWord"/);
   assert.match(mobileMarkup, /id="mobileExpandButton"/);
   assert.match(mobileMarkup, /id="mobileNextButton"/);
+  assert.doesNotMatch(mobileMarkup, /WORD · PHRASE/);
   assert.doesNotMatch(mobileMarkup, /添加单词|编辑|删除/);
+});
+
+test('mobile view includes directory, study and favorites navigation', () => {
+  for (const id of [
+    'mobileDirectoryTab',
+    'mobileStudyTab',
+    'mobileFavoritesTab',
+    'mobileDirectoryView',
+    'mobileFavoritesView',
+  ]) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+
+  assert.match(html, />目录</);
+  assert.match(html, />学习</);
+  assert.match(html, />收藏</);
+  assert.match(styles, /\.mobile-bottom-nav\s*\{/);
+  assert.match(styles, /position: fixed;/);
+});
+
+test('favorites stay local and do not add a server word field', () => {
+  assert.match(html, /id="mobileFavoriteButton"/);
+  assert.match(script, /wordbook\.mobile\.favorites\.v1/);
+  assert.match(script, /localStorage\.setItem\(MOBILE_FAVORITES_KEY/);
+  assert.match(script, /function toggleMobileFavorite\(wordId\)/);
+  assert.match(script, /function getMobileFavorites\(\)/);
+
+  const formStart = html.indexOf('<form id="wordForm"');
+  const formEnd = html.indexOf('</form>', formStart);
+  const formMarkup = html.slice(formStart, formEnd);
+  assert.doesNotMatch(formMarkup, /favorite/i);
 });
 
 test('mobile details include only the supported learning fields', () => {

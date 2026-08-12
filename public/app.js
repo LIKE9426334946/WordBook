@@ -1,9 +1,22 @@
+const MOBILE_FAVORITES_KEY = 'wordbook.mobile.favorites.v1';
+
+function loadMobileFavorites() {
+  try {
+    const value = JSON.parse(localStorage.getItem(MOBILE_FAVORITES_KEY) || '[]');
+    return new Set(Array.isArray(value) ? value.filter((id) => typeof id === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
 const state = {
   words: [],
   deletingWord: null,
   searchTimer: null,
   mobileIndex: 0,
   mobileExpanded: false,
+  mobileView: 'study',
+  mobileFavoriteIds: loadMobileFavorites(),
 };
 
 const elements = {
@@ -40,7 +53,10 @@ const elements = {
   mobileLearningLoading: document.querySelector('#mobileLearningLoading'),
   mobileLearningEmpty: document.querySelector('#mobileLearningEmpty'),
   mobileStudyContent: document.querySelector('#mobileStudyContent'),
+  mobileHeaderTitle: document.querySelector('#mobileHeaderTitle'),
+  mobileHeaderSubtitle: document.querySelector('#mobileHeaderSubtitle'),
   mobileWord: document.querySelector('#mobileWord'),
+  mobileFavoriteButton: document.querySelector('#mobileFavoriteButton'),
   mobileExpandButton: document.querySelector('#mobileExpandButton'),
   mobileProgress: document.querySelector('#mobileProgress'),
   mobileNextButton: document.querySelector('#mobileNextButton'),
@@ -51,6 +67,16 @@ const elements = {
   mobileExampleList: document.querySelector('#mobileExampleList'),
   mobileNotesSection: document.querySelector('#mobileNotesSection'),
   mobileNotes: document.querySelector('#mobileNotes'),
+  mobileDirectoryView: document.querySelector('#mobileDirectoryView'),
+  mobileDirectoryList: document.querySelector('#mobileDirectoryList'),
+  mobileDirectoryEmpty: document.querySelector('#mobileDirectoryEmpty'),
+  mobileFavoritesView: document.querySelector('#mobileFavoritesView'),
+  mobileFavoritesList: document.querySelector('#mobileFavoritesList'),
+  mobileFavoritesEmpty: document.querySelector('#mobileFavoritesEmpty'),
+  mobileFavoritesSummary: document.querySelector('#mobileFavoritesSummary'),
+  mobileDirectoryTab: document.querySelector('#mobileDirectoryTab'),
+  mobileStudyTab: document.querySelector('#mobileStudyTab'),
+  mobileFavoritesTab: document.querySelector('#mobileFavoritesTab'),
 };
 
 const icons = {
@@ -84,12 +110,97 @@ function createElement(tag, className, text) {
   return element;
 }
 
+function saveMobileFavorites() {
+  localStorage.setItem(MOBILE_FAVORITES_KEY, JSON.stringify([...state.mobileFavoriteIds]));
+}
+
+function getMobileFavorites() {
+  return state.words.filter((word) => state.mobileFavoriteIds.has(word.id));
+}
+
+function updateMobileNavigation() {
+  const viewDetails = {
+    directory: ['单词目录', 'WordBook'],
+    study: ['单词学习', 'WordBook'],
+    favorites: ['我的收藏', 'WordBook'],
+  };
+  const [title, subtitle] = viewDetails[state.mobileView];
+  elements.mobileHeaderTitle.textContent = title;
+  elements.mobileHeaderSubtitle.textContent = subtitle;
+
+  const favoriteCount = getMobileFavorites().length;
+  elements.mobileHeaderTotal.textContent = state.mobileView === 'favorites'
+    ? `${favoriteCount} 收藏`
+    : `${state.words.length} 词`;
+
+  for (const button of [elements.mobileDirectoryTab, elements.mobileStudyTab, elements.mobileFavoritesTab]) {
+    const active = button.dataset.mobileView === state.mobileView;
+    button.classList.toggle('active', active);
+    if (active) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  }
+}
+
+function createMobileListItem(word, index, favoriteList = false) {
+  const item = createElement('li', 'mobile-word-list-item');
+  const openButton = createElement('button', 'mobile-word-list-open');
+  openButton.type = 'button';
+  openButton.setAttribute('aria-label', `学习 ${word.word}`);
+
+  const number = createElement('span', 'mobile-word-list-number', String(index + 1).padStart(2, '0'));
+  const copy = createElement('span', 'mobile-word-list-copy');
+  copy.append(
+    createElement('strong', '', word.word),
+    createElement('small', '', word.meaning || '暂时没有释义'),
+  );
+  const arrow = createElement('span', 'mobile-word-list-arrow', '›');
+  openButton.append(number, copy, arrow);
+  openButton.addEventListener('click', () => openMobileWord(word.id));
+  item.append(openButton);
+
+  if (favoriteList) {
+    const unFavoriteButton = createElement('button', 'mobile-list-favorite active');
+    unFavoriteButton.type = 'button';
+    unFavoriteButton.setAttribute('aria-label', `取消收藏 ${word.word}`);
+    unFavoriteButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z" /></svg>';
+    unFavoriteButton.addEventListener('click', () => toggleMobileFavorite(word.id));
+    item.append(unFavoriteButton);
+  }
+
+  return item;
+}
+
+function renderMobileLists() {
+  elements.mobileDirectoryList.replaceChildren();
+  state.words.forEach((word, index) => {
+    elements.mobileDirectoryList.append(createMobileListItem(word, index));
+  });
+  elements.mobileDirectoryEmpty.hidden = state.words.length > 0;
+  elements.mobileDirectoryList.hidden = state.words.length === 0;
+
+  const favorites = getMobileFavorites();
+  elements.mobileFavoritesList.replaceChildren();
+  favorites.forEach((word, index) => {
+    elements.mobileFavoritesList.append(createMobileListItem(word, index, true));
+  });
+  elements.mobileFavoritesEmpty.hidden = favorites.length > 0;
+  elements.mobileFavoritesList.hidden = favorites.length === 0;
+  elements.mobileFavoritesSummary.textContent = favorites.length
+    ? `已收藏 ${favorites.length} 个单词，点击即可继续学习`
+    : '收藏的单词会出现在这里';
+}
+
 function renderMobileLearning() {
   const total = state.words.length;
   elements.mobileLearningLoading.hidden = true;
-  elements.mobileHeaderTotal.textContent = `${total} 词`;
-  elements.mobileLearningEmpty.hidden = total > 0;
-  elements.mobileStudyContent.hidden = total === 0;
+  updateMobileNavigation();
+  renderMobileLists();
+
+  const showingStudy = state.mobileView === 'study';
+  elements.mobileLearningEmpty.hidden = !showingStudy || total > 0;
+  elements.mobileStudyContent.hidden = !showingStudy || total === 0;
+  elements.mobileDirectoryView.hidden = state.mobileView !== 'directory';
+  elements.mobileFavoritesView.hidden = state.mobileView !== 'favorites';
 
   if (!total) return;
 
@@ -111,7 +222,41 @@ function renderMobileLearning() {
   elements.mobileNotes.textContent = word.notes || '';
   elements.mobileNotesSection.hidden = !word.notes;
 
+  const isFavorite = state.mobileFavoriteIds.has(word.id);
+  elements.mobileFavoriteButton.classList.toggle('active', isFavorite);
+  elements.mobileFavoriteButton.setAttribute('aria-pressed', String(isFavorite));
+  elements.mobileFavoriteButton.setAttribute(
+    'aria-label',
+    isFavorite ? `取消收藏 ${word.word}` : `收藏 ${word.word}`,
+  );
+
   setMobileExpanded(state.mobileExpanded);
+}
+
+function setMobileView(view) {
+  state.mobileView = view;
+  state.mobileExpanded = false;
+  renderMobileLearning();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function openMobileWord(wordId) {
+  const wordIndex = state.words.findIndex((word) => word.id === wordId);
+  if (wordIndex < 0) return;
+  state.mobileIndex = wordIndex;
+  setMobileView('study');
+}
+
+function toggleMobileFavorite(wordId) {
+  if (state.mobileFavoriteIds.has(wordId)) {
+    state.mobileFavoriteIds.delete(wordId);
+    showToast('已取消收藏');
+  } else {
+    state.mobileFavoriteIds.add(wordId);
+    showToast('已加入收藏');
+  }
+  saveMobileFavorites();
+  renderMobileLearning();
 }
 
 function setMobileExpanded(expanded) {
@@ -339,6 +484,13 @@ elements.searchInput.addEventListener('input', () => {
 elements.sortSelect.addEventListener('change', () => loadWords());
 elements.mobileExpandButton.addEventListener('click', () => setMobileExpanded(!state.mobileExpanded));
 elements.mobileNextButton.addEventListener('click', showNextMobileWord);
+elements.mobileFavoriteButton.addEventListener('click', () => {
+  const word = state.words[state.mobileIndex];
+  if (word) toggleMobileFavorite(word.id);
+});
+elements.mobileDirectoryTab.addEventListener('click', () => setMobileView('directory'));
+elements.mobileStudyTab.addEventListener('click', () => setMobileView('study'));
+elements.mobileFavoritesTab.addEventListener('click', () => setMobileView('favorites'));
 
 for (const dialog of [elements.wordDialog, elements.deleteDialog]) {
   dialog.addEventListener('click', (event) => {
