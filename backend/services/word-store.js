@@ -2,6 +2,8 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const DATA_VERSION = 2;
+
 class StoreError extends Error {
   constructor(code, message, details = null) {
     super(message);
@@ -21,20 +23,27 @@ class WordStore {
     fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
 
     if (!fs.existsSync(this.filePath)) {
-      const initialState = { version: 1, words: [] };
+      const initialState = { version: DATA_VERSION, words: [] };
       this.#write(initialState);
       return initialState;
     }
 
     try {
       const parsed = JSON.parse(fs.readFileSync(this.filePath, 'utf8'));
-      const words = Array.isArray(parsed) ? parsed : parsed.words;
+
+      if (parsed.version !== DATA_VERSION) {
+        const initialState = { version: DATA_VERSION, words: [] };
+        this.#write(initialState);
+        return initialState;
+      }
+
+      const words = parsed.words;
 
       if (!Array.isArray(words)) {
         throw new Error('words 字段不是数组');
       }
 
-      return { version: 1, words };
+      return { version: DATA_VERSION, words };
     } catch (error) {
       throw new Error(`无法读取单词数据文件 ${this.filePath}: ${error.message}`);
     }
@@ -47,7 +56,7 @@ class WordStore {
   }
 
   #persist(words) {
-    const nextState = { version: 1, words };
+    const nextState = { version: DATA_VERSION, words };
     this.#write(nextState);
     this.state = nextState;
   }
@@ -63,27 +72,20 @@ class WordStore {
     );
   }
 
-  list({ query = '', tag = '', sort = 'updated-desc' } = {}) {
+  list({ query = '', sort = 'updated-desc' } = {}) {
     const normalizedQuery = query.trim().toLocaleLowerCase('zh-CN');
-    const normalizedTag = tag.trim().toLocaleLowerCase('zh-CN');
 
     const filtered = this.state.words.filter((item) => {
       const searchable = [
         item.word,
         item.meaning,
         item.notes,
-        item.sourcePdf,
         ...(item.examples || []),
-        ...(item.tags || []),
       ]
         .join(' ')
         .toLocaleLowerCase('zh-CN');
 
-      const matchesQuery = !normalizedQuery || searchable.includes(normalizedQuery);
-      const matchesTag =
-        !normalizedTag ||
-        (item.tags || []).some((itemTag) => itemTag.toLocaleLowerCase('zh-CN') === normalizedTag);
-      return matchesQuery && matchesTag;
+      return !normalizedQuery || searchable.includes(normalizedQuery);
     });
 
     const sorters = {
@@ -108,7 +110,10 @@ class WordStore {
     const now = new Date().toISOString();
     const word = {
       id: crypto.randomUUID(),
-      ...payload,
+      word: payload.word,
+      meaning: payload.meaning,
+      examples: payload.examples,
+      notes: payload.notes,
       createdAt: now,
       updatedAt: now,
     };
@@ -129,9 +134,12 @@ class WordStore {
     }
 
     const updated = {
-      ...this.state.words[index],
-      ...payload,
       id,
+      word: payload.word,
+      meaning: payload.meaning,
+      examples: payload.examples,
+      notes: payload.notes,
+      createdAt: this.state.words[index].createdAt,
       updatedAt: new Date().toISOString(),
     };
     const words = [...this.state.words];
@@ -159,19 +167,10 @@ class WordStore {
         day: '2-digit',
       }).format(new Date(value));
     const today = beijingDate(new Date());
-    const tags = new Set();
-    const sources = new Set();
-
-    for (const item of this.state.words) {
-      for (const tag of item.tags || []) tags.add(tag.toLocaleLowerCase('zh-CN'));
-      if (item.sourcePdf) sources.add(item.sourcePdf.toLocaleLowerCase('zh-CN'));
-    }
 
     return {
       total: this.state.words.length,
       addedToday: this.state.words.filter((item) => beijingDate(item.createdAt) === today).length,
-      tagCount: tags.size,
-      sourceCount: sources.size,
     };
   }
 }

@@ -84,12 +84,6 @@ button {
   margin-bottom: 15px;
 }
 
-.field-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 112px;
-  gap: 12px;
-}
-
 label {
   color: #50625c;
   font-size: 13px;
@@ -224,7 +218,4 @@ textarea:focus {
     padding: 17px;
   }
 
-  .field-row {
-    grid-template-columns: 1fr;
-  }
 }

@@ -1,8 +1,6 @@
 const form = document.querySelector('#word-form');
 const wordInput = document.querySelector('#word');
 const meaningInput = document.querySelector('#meaning');
-const sourceInput = document.querySelector('#sourcePdf');
-const pageInput = document.querySelector('#page');
 const statusElement = document.querySelector('#status');
 const saveButton = document.querySelector('#save');
 const captureId = new URLSearchParams(location.search).get('capture');
@@ -19,9 +17,6 @@ form.addEventListener('submit', async (event) => {
     word: WordBookShared.normalizeSelection(wordInput.value),
     meaning: document.querySelector('#meaning').value.trim(),
     examples: WordBookShared.parseLines(document.querySelector('#examples').value),
-    sourcePdf: sourceInput.value.trim(),
-    page: pageInput.value ? Number(pageInput.value) : null,
-    tags: WordBookShared.parseTags(document.querySelector('#tags').value),
     notes: document.querySelector('#notes').value.trim(),
   };
 
@@ -65,8 +60,6 @@ async function initialize() {
     const capture = stored[key];
     if (capture) {
       wordInput.value = capture.word || '';
-      sourceInput.value = capture.sourcePdf || '';
-      pageInput.value = capture.page || '';
     }
   }
 

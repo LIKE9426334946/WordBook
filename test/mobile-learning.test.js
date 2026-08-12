@@ -20,21 +20,30 @@ test('mobile view is a study-only surface', () => {
   assert.doesNotMatch(mobileMarkup, /添加单词|编辑|删除/);
 });
 
-test('mobile details include every supported word field', () => {
+test('mobile details include only the supported learning fields', () => {
   for (const id of [
     'mobileMeaning',
     'mobileExampleList',
     'mobileNotes',
-    'mobileSource',
-    'mobileTagList',
-    'mobileAddedDate',
   ]) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
 
+  assert.doesNotMatch(html, /id="mobile(?:Source|TagList|AddedDate)"/);
+
   assert.match(script, /function renderMobileLearning\(\)/);
   assert.match(script, /state\.mobileIndex = \(state\.mobileIndex \+ 1\) % state\.words\.length/);
   assert.match(script, /setMobileExpanded\(!state\.mobileExpanded\)/);
+});
+
+test('desktop editor exposes exactly word, meaning, examples and notes', () => {
+  const formStart = html.indexOf('<form id="wordForm"');
+  const formEnd = html.indexOf('</form>', formStart);
+  const formMarkup = html.slice(formStart, formEnd);
+  const names = [...formMarkup.matchAll(/\sname="([^"]+)"/g)].map((match) => match[1]);
+
+  assert.deepEqual(names, ['word', 'meaning', 'examples', 'notes']);
+  assert.doesNotMatch(formMarkup, /sourcePdf|name="page"|name="tags"/);
 });
 
 test('small and touch-first screens hide management and show learning', () => {

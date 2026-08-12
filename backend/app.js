@@ -8,7 +8,6 @@ const MAX_TEXT_LENGTH = {
   word: 100,
   meaning: 1000,
   notes: 2000,
-  sourcePdf: 300,
 };
 
 function cleanText(value, maximumLength) {
@@ -38,29 +37,16 @@ function cleanList(value, { maximumItems, maximumLength, splitLines = false }) {
 function validateWordPayload(body = {}) {
   const word = cleanText(body.word, MAX_TEXT_LENGTH.word);
   const meaning = cleanText(body.meaning, MAX_TEXT_LENGTH.meaning);
-  const sourcePdf = cleanText(
-    body.sourcePdf ?? body.source_pdf ?? body.pdfName,
-    MAX_TEXT_LENGTH.sourcePdf,
-  );
   const notes = cleanText(body.notes, MAX_TEXT_LENGTH.notes);
   const examples = cleanList(body.examples ?? body.example, {
     maximumItems: 10,
     maximumLength: 500,
     splitLines: true,
   });
-  const tags = cleanList(body.tags, {
-    maximumItems: 10,
-    maximumLength: 30,
-  });
 
-  const rawPage = body.page;
-  const page = rawPage === '' || rawPage === undefined || rawPage === null ? null : Number(rawPage);
   const errors = [];
   if (!word) errors.push({ field: 'word', message: '请输入单词' });
   if (!meaning) errors.push({ field: 'meaning', message: '请输入释义' });
-  if (page !== null && (!Number.isInteger(page) || page < 1 || page > 100000)) {
-    errors.push({ field: 'page', message: '页码必须是大于 0 的整数' });
-  }
 
   if (errors.length) {
     const error = new Error('提交内容有误');
@@ -70,7 +56,7 @@ function validateWordPayload(body = {}) {
     throw error;
   }
 
-  return { word, meaning, examples, sourcePdf, page, tags, notes };
+  return { word, meaning, examples, notes };
 }
 
 function safeTokenEquals(providedToken, expectedToken) {
@@ -116,10 +102,9 @@ function createApp({
 
   app.get('/api/words', (request, response) => {
     const query = cleanText(request.query.q, 200);
-    const tag = cleanText(request.query.tag, 30);
     const sort = cleanText(request.query.sort, 30);
-    const words = store.list({ query, tag, sort });
-    response.json({ data: words, meta: { total: words.length, query, tag, sort } });
+    const words = store.list({ query, sort });
+    response.json({ data: words, meta: { total: words.length, query, sort } });
   });
 
   app.get('/api/words/:id', (request, response) => {

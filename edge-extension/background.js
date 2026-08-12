@@ -3,7 +3,6 @@ importScripts('shared.js');
 const {
   normalizeSelection,
   normalizeServerUrl,
-  pdfMetadata,
 } = WordBookShared;
 
 const CONTEXT_MENU_ID = 'wordbook-add-selection';
@@ -26,8 +25,6 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId !== CONTEXT_MENU_ID) return;
   openEditor({
     selection: info.selectionText,
-    title: tab?.title,
-    url: info.pageUrl || tab?.url,
     method: 'context-menu',
   }).catch(console.error);
 });
@@ -43,10 +40,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'OPEN_EDITOR') {
     openEditor({
       selection: message.selection,
-      title: message.title || sender.tab?.title,
-      url: message.url || sender.tab?.url,
-      sourcePdf: message.sourcePdf,
-      page: message.page,
       method: message.method || 'backquote',
     })
       .then(() => sendResponse({ ok: true }))
@@ -86,14 +79,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 async function openEditor(capture = {}) {
   const selection = normalizeSelection(capture.selection);
-  const metadata = pdfMetadata({ title: capture.title, url: capture.url });
   const entry = {
     word: selection,
-    sourcePdf: String(capture.sourcePdf || metadata.sourcePdf || '').slice(0, 300),
-    page: Number.isInteger(Number(capture.page)) && Number(capture.page) > 0
-      ? Number(capture.page)
-      : metadata.page,
-    sourceUrl: String(capture.url || '').slice(0, 2000),
     method: capture.method || 'unknown',
     capturedAt: new Date().toISOString(),
   };
@@ -104,7 +91,7 @@ async function openEditor(capture = {}) {
     url: chrome.runtime.getURL(`editor.html?capture=${encodeURIComponent(captureId)}`),
     type: 'popup',
     width: 480,
-    height: 760,
+    height: 640,
     focused: true,
   });
 }
@@ -123,7 +110,7 @@ async function captureActiveTab() {
       return { ok: false, message: '请先选中一个单词，再按快捷键' };
     }
 
-    await openEditor({ selection, title: tab.title, url: tab.url, method: 'extension-command' });
+    await openEditor({ selection, method: 'extension-command' });
     return { ok: true };
   } catch {
     return {

@@ -4,14 +4,15 @@ WordBook 是一个用于收集、整理和复习 PDF 阅读生词的个人单词
 
 ## 第一版功能
 
-- 网页端新增、搜索、筛选、编辑和删除单词
-- 显示释义、例句、标签、PDF 来源与页码
-- 显示单词总数、今日新增数和阅读来源数
+- 网页端新增、搜索、排序、编辑和删除单词
+- 每条内容只填写单词、释义、例句和备注
+- 手机端为专用学习页，可展开释义并切换到下一个单词
+- 显示单词总数和今日新增数
 - Edge 扩展上传接口使用独立令牌校验
 - 单词忽略大小写和首尾空格进行重复检测
 - JSON 数据采用临时文件替换方式写入，避免写到一半损坏原文件
 - Edge 插件支持反引号、`Alt+W`、右键菜单和工具栏四种录入入口
-- 插件设置页保存服务器地址与令牌，录入窗口支持释义、例句、来源、页码、标签和备注
+- 插件设置页保存服务器地址与令牌，录入窗口支持释义、例句和备注
 - 电脑和手机响应式页面
 - Node.js 仅监听 `127.0.0.1:3040`
 - Nginx 对外监听 `16040`
@@ -36,7 +37,8 @@ WordBook/
 │   └── styles.css
 ├── test/
 │   ├── app.test.js
-│   └── extension.test.js
+│   ├── extension.test.js
+│   └── mobile-learning.test.js
 ├── .env.example
 └── package.json
 ```
@@ -58,9 +60,6 @@ Content-Type: application/json
   "word": "gradient",
   "meaning": "梯度；变化率",
   "examples": ["The gradient points in the direction of steepest ascent."],
-  "sourcePdf": "deep-learning.pdf",
-  "page": 42,
-  "tags": ["论文", "神经网络"],
   "notes": "常用于优化算法"
 }
 ```
@@ -74,12 +73,14 @@ Content-Type: application/json
 | 方法 | 地址 | 说明 |
 |---|---|---|
 | `GET` | `/api/health` | 服务健康检查 |
-| `GET` | `/api/words` | 获取与搜索单词，支持 `q`、`tag`、`sort` 参数 |
+| `GET` | `/api/words` | 获取与搜索单词，支持 `q`、`sort` 参数 |
 | `GET` | `/api/words/stats` | 获取统计数据 |
 | `GET` | `/api/words/:id` | 获取一个单词 |
 | `POST` | `/api/words` | 网页端添加单词 |
 | `PUT` | `/api/words/:id` | 更新单词 |
 | `DELETE` | `/api/words/:id` | 删除单词 |
+
+数据文件使用第 2 版结构。升级后首次启动时，如果检测到旧版数据，会直接清空并建立新的空词库，不迁移旧字段。
 
 ## 本地运行
 

@@ -71,12 +71,6 @@
             </span>
             <div><strong id="todayStat">0</strong><span>今天新添加</span></div>
           </article>
-          <article class="stat-card stat-source">
-            <span class="stat-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M4 19.5V5a2 2 0 0 1 2-2h11l3 3v15H6a2 2 0 0 1-2-1.5Z" /><path d="M8 8h8M8 12h8M8 16h5" /></svg>
-            </span>
-            <div><strong id="sourceStat">0</strong><span>阅读来源</span></div>
-          </article>
         </section>
 
         <section class="collection-section">
@@ -95,15 +89,8 @@
           <div class="toolbar">
             <label class="search-box" for="searchInput">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
-              <input id="searchInput" type="search" placeholder="搜索单词、释义、标签或 PDF……" autocomplete="off" />
+              <input id="searchInput" type="search" placeholder="搜索单词、释义、例句或备注……" autocomplete="off" />
               <kbd>⌘ K</kbd>
-            </label>
-            <label class="select-wrap">
-              <span class="sr-only">标签筛选</span>
-              <select id="tagFilter">
-                <option value="">全部标签</option>
-              </select>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4" /></svg>
             </label>
             <label class="select-wrap">
               <span class="sr-only">排序方式</span>
@@ -207,17 +194,6 @@
             <p id="mobileNotes"></p>
           </section>
 
-          <section class="mobile-detail-section" id="mobileSourceSection" hidden>
-            <h2><span aria-hidden="true">源</span>阅读来源</h2>
-            <p id="mobileSource"></p>
-          </section>
-
-          <section class="mobile-detail-section" id="mobileTagsSection" hidden>
-            <h2><span aria-hidden="true">签</span>标签</h2>
-            <div class="mobile-tag-list" id="mobileTagList"></div>
-          </section>
-
-          <p class="mobile-added-date" id="mobileAddedDate"></p>
         </div>
       </main>
     </section>
@@ -252,23 +228,6 @@
             <span>例句</span>
             <textarea id="examplesInput" name="examples" rows="3" placeholder="每行一句例句"></textarea>
             <small>每行保存为一条例句</small>
-          </label>
-
-          <label class="field">
-            <span>来源 PDF</span>
-            <input id="sourceInput" name="sourcePdf" type="text" maxlength="300" placeholder="paper-name.pdf" />
-          </label>
-
-          <label class="field field-page">
-            <span>页码</span>
-            <input id="pageInput" name="page" type="number" min="1" max="100000" placeholder="12" />
-            <small class="field-error" data-error-for="page"></small>
-          </label>
-
-          <label class="field field-full">
-            <span>标签</span>
-            <input id="tagsInput" name="tags" type="text" placeholder="论文, 神经网络, 第三章" />
-            <small>使用逗号分隔，最多 10 个标签</small>
           </label>
 
           <label class="field field-full">

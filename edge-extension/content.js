@@ -13,14 +13,9 @@
 
       event.preventDefault();
       event.stopPropagation();
-      const metadata = WordBookShared.pdfMetadata({ title: document.title, url: location.href });
       chrome.runtime.sendMessage({
         type: 'OPEN_EDITOR',
         selection,
-        title: document.title,
-        url: location.href,
-        sourcePdf: metadata.sourcePdf,
-        page: metadata.page,
         method: 'backquote',
       });
     },

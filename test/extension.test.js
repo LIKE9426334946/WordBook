@@ -1,6 +1,10 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const test = require('node:test');
 const shared = require('../edge-extension/shared');
+
+const extensionDirectory = path.join(__dirname, '../edge-extension');
 
 test('extension normalizes selected words without damaging apostrophes', () => {
   assert.equal(shared.normalizeSelection('  “gradient,”  '), 'gradient');
@@ -16,17 +20,19 @@ test('extension validates and normalizes server URLs', () => {
   assert.throws(() => shared.normalizeServerUrl('ftp://example.com'), /http/);
 });
 
-test('extension extracts PDF filename and hash page number', () => {
-  assert.deepEqual(
-    shared.pdfMetadata({
-      title: 'Paper - Microsoft Edge',
-      url: 'https://example.com/files/deep%20learning.pdf#page=42',
-    }),
-    { sourcePdf: 'deep learning.pdf', page: 42 },
-  );
+test('extension parses examples line by line', () => {
+  assert.deepEqual(shared.parseLines('First.\n\nSecond.'), ['First.', 'Second.']);
 });
 
-test('extension parses examples and unique tags', () => {
-  assert.deepEqual(shared.parseLines('First.\n\nSecond.'), ['First.', 'Second.']);
-  assert.deepEqual(shared.parseTags('论文, 神经网络，论文'), ['论文', '神经网络']);
+test('extension editor submits only the four supported fields', () => {
+  const html = fs.readFileSync(path.join(extensionDirectory, 'editor.html'), 'utf8');
+  const script = fs.readFileSync(path.join(extensionDirectory, 'editor.js'), 'utf8');
+  const formStart = html.indexOf('<form id="word-form"');
+  const formEnd = html.indexOf('</form>', formStart);
+  const formMarkup = html.slice(formStart, formEnd);
+  const names = [...formMarkup.matchAll(/\sname="([^"]+)"/g)].map((match) => match[1]);
+
+  assert.deepEqual(names, ['word', 'meaning', 'examples', 'notes']);
+  assert.doesNotMatch(formMarkup, /sourcePdf|name="page"|name="tags"/);
+  assert.doesNotMatch(script, /sourcePdf|pageInput|parseTags/);
 });
