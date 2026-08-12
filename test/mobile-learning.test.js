@@ -68,6 +68,14 @@ test('mobile details include only the supported learning fields', () => {
   assert.match(script, /setMobileExpanded\(!state\.mobileExpanded\)/);
 });
 
+test('mobile detail cards keep labels quieter than learning content', () => {
+  assert.match(styles, /\.mobile-detail-section h2\s*\{[^}]*font-size: 12px;/s);
+  assert.match(styles, /\.mobile-detail-section h2 > span\s*\{[^}]*width: 22px;[^}]*height: 22px;/s);
+  assert.match(styles, /\.mobile-detail-section p\s*\{[^}]*font-size: 15px;/s);
+  assert.match(styles, /\.mobile-example-list li\s*\{[^}]*font-size: 15px;/s);
+  assert.match(styles, /\.mobile-detail-section h2::after\s*\{/);
+});
+
 test('desktop editor exposes exactly word, meaning, examples and notes', () => {
   const formStart = html.indexOf('<form id="wordForm"');
   const formEnd = html.indexOf('</form>', formStart);
