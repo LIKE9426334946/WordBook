@@ -192,6 +192,17 @@ dialog::backdrop { background: rgba(25, 36, 32, 0.38); backdrop-filter: blur(5px
 .directory-form-row { display: flex; align-items: center; gap: 8px; }
 .directory-form-row .primary-button { min-width: 82px; flex: 0 0 auto; }
 .directory-form-row .text-button { min-width: 86px; flex: 0 0 auto; }
+.directory-move-form { margin-top: 12px; padding: 18px; background: #f8faf8; border: 1px solid #dfe9e3; border-radius: 14px; }
+.directory-move-heading span, .directory-move-heading small { display: block; }
+.directory-move-heading span { color: var(--pine-dark); font-size: 0.75rem; font-weight: 750; }
+.directory-move-heading small { margin-top: 4px; color: #87928d; font-size: 0.66rem; }
+.directory-move-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; align-items: end; gap: 9px; margin-top: 14px; }
+.directory-move-row label { min-width: 0; }
+.directory-move-row label > span { display: block; margin-bottom: 6px; color: #6d7772; font-size: 0.66rem; font-weight: 700; }
+.directory-move-row select { width: 100%; min-height: 40px; padding: 0 34px 0 11px; color: var(--ink); background: #fffefa; border: 1px solid #d9e2dc; border-radius: 9px; }
+.directory-move-arrow { align-self: center; margin-top: 19px; color: var(--sage); font-size: 1.05rem; }
+.directory-move-button { min-width: 88px; min-height: 40px; padding: 0 13px; }
+.directory-move-button:disabled { opacity: 0.5; cursor: not-allowed; }
 .directory-manager-list { display: grid; max-height: min(390px, 44vh); gap: 8px; margin-top: 20px; overflow-y: auto; }
 .directory-manager-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 13px 14px; background: #fffefa; border: 1px solid #e6e2d9; border-radius: 12px; }
 .directory-manager-copy { min-width: 0; }
@@ -226,6 +237,11 @@ dialog::backdrop { background: rgba(25, 36, 32, 0.38); backdrop-filter: blur(5px
   .desktop-directory-list, .manage-directories-button { display: none; }
   .sidebar-note, .sidebar-footer { display: none; }
   .main-content { width: 100%; padding: 35px 24px 55px; }
+}
+
+@media (max-width: 620px) {
+  .directory-move-row { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+  .directory-move-button { grid-column: 1 / -1; }
 }
 
 @media (max-width: 700px), (max-width: 950px) and (pointer: coarse) {

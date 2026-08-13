@@ -218,6 +218,29 @@ class WordStore {
     };
   }
 
+  moveDirectoryWords(sourceId, targetId) {
+    const source = this.state.directories.find((directory) => directory.id === sourceId);
+    if (!source) throw new StoreError('DIRECTORY_NOT_FOUND', '没有找到来源目录');
+
+    const target = this.state.directories.find((directory) => directory.id === targetId);
+    if (!target) throw new StoreError('DIRECTORY_NOT_FOUND', '没有找到目标目录');
+
+    if (sourceId === targetId) {
+      throw new StoreError('SAME_DIRECTORY', '来源目录和目标目录不能相同');
+    }
+
+    const movedAt = new Date().toISOString();
+    let movedCount = 0;
+    const words = this.state.words.map((word) => {
+      if (word.directoryId !== sourceId) return word;
+      movedCount += 1;
+      return { ...word, directoryId: targetId, updatedAt: movedAt };
+    });
+
+    if (movedCount > 0) this.#persist(words);
+    return { source, target, movedCount };
+  }
+
   deleteDirectory(id) {
     if (id === DEFAULT_DIRECTORY_ID) {
       throw new StoreError('DEFAULT_DIRECTORY', '默认目录不能删除');

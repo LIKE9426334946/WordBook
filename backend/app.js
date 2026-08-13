@@ -2,7 +2,7 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const cors = require('cors');
 const express = require('express');
-const { StoreError, WordStore } = require('./services/word-store');
+const { DEFAULT_DIRECTORY_ID, StoreError, WordStore } = require('./services/word-store');
 
 const MAX_TEXT_LENGTH = {
   word: 100,
@@ -157,6 +157,32 @@ function createApp({
     }
   });
 
+  app.post('/api/directories/:id/move-words', (request, response, next) => {
+    try {
+      const targetDirectoryId = cleanText(
+        request.body?.targetDirectoryId,
+        MAX_TEXT_LENGTH.directoryId,
+      );
+      if (!targetDirectoryId) {
+        const error = new Error('请选择目标目录');
+        error.status = 400;
+        error.code = 'VALIDATION_ERROR';
+        error.details = [{ field: 'targetDirectoryId', message: '请选择目标目录' }];
+        throw error;
+      }
+
+      const result = store.moveDirectoryWords(request.params.id, targetDirectoryId);
+      response.json({
+        data: result,
+        message: result.movedCount
+          ? `已移动 ${result.movedCount} 个单词到“${result.target.name}”`
+          : `“${result.source.name}”中没有需要移动的单词`,
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.delete('/api/directories/:id', (request, response, next) => {
     try {
       const directory = store.deleteDirectory(request.params.id);
@@ -219,7 +245,11 @@ function createApp({
         });
       }
 
-      const word = store.create(validateWordPayload(request.body));
+      const payload = validateWordPayload({
+        ...request.body,
+        directoryId: DEFAULT_DIRECTORY_ID,
+      });
+      const word = store.create(payload);
       return response.status(201).json({ data: word, message: '已添加到单词本' });
     } catch (error) {
       return next(error);
@@ -238,7 +268,7 @@ function createApp({
     if (error instanceof StoreError) {
       const status = ['WORD_EXISTS', 'DIRECTORY_EXISTS'].includes(error.code)
         ? 409
-        : error.code === 'DEFAULT_DIRECTORY' ? 400 : 404;
+        : ['DEFAULT_DIRECTORY', 'SAME_DIRECTORY'].includes(error.code) ? 400 : 404;
       return response.status(status).json({
         error: { code: error.code, message: error.message, existing: error.details },
       });

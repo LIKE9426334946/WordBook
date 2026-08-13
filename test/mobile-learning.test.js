@@ -61,6 +61,24 @@ test('mobile directory uses server-managed groups with an independent local revi
   assert.match(styles, /background: #def3e9;/);
 });
 
+test('desktop directory manager can move every word between directories', () => {
+  for (const id of [
+    'directoryMoveForm',
+    'moveSourceSelect',
+    'moveTargetSelect',
+    'directoryMoveSummary',
+    'moveDirectoryWordsButton',
+  ]) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+
+  assert.match(script, /async function moveDirectoryWords\(event\)/);
+  assert.match(script, /\/api\/directories\/\$\{sourceId\}\/move-words/);
+  assert.match(script, /targetDirectoryId: targetId/);
+  assert.match(script, /sourceId === targetId \|\| source\.wordCount === 0/);
+  assert.match(styles, /\.directory-move-form\s*\{/);
+});
+
 test('favorites stay local and do not add a server word field', () => {
   assert.match(html, /id="mobileFavoriteButton"/);
   assert.match(script, /wordbook\.mobile\.favorites\.v1/);

@@ -94,6 +94,13 @@ test('directory API organizes words and safely moves them when a directory is de
     assert.equal(createDirectoryResponse.status, 201);
     const directory = (await createDirectoryResponse.json()).data;
 
+    const targetDirectoryResponse = await fetch(`${baseUrl}/api/directories`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: '已整理' }),
+    });
+    const targetDirectory = (await targetDirectoryResponse.json()).data;
+
     const createWordResponse = await fetch(`${baseUrl}/api/words`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -114,6 +121,30 @@ test('directory API organizes words and safely moves them when a directory is de
       1,
     );
 
+    const moveResponse = await fetch(`${baseUrl}/api/directories/${directory.id}/move-words`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ targetDirectoryId: targetDirectory.id }),
+    });
+    assert.equal(moveResponse.status, 200);
+    const moveResult = await moveResponse.json();
+    assert.equal(moveResult.data.movedCount, 1);
+    assert.equal(moveResult.data.target.id, targetDirectory.id);
+    assert.equal(
+      (await (await fetch(`${baseUrl}/api/words/${word.id}`)).json()).data.directoryId,
+      targetDirectory.id,
+    );
+
+    const sameDirectoryMove = await fetch(
+      `${baseUrl}/api/directories/${targetDirectory.id}/move-words`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ targetDirectoryId: targetDirectory.id }),
+      },
+    );
+    assert.equal(sameDirectoryMove.status, 400);
+
     const renameResponse = await fetch(`${baseUrl}/api/directories/${directory.id}`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
@@ -122,7 +153,7 @@ test('directory API organizes words and safely moves them when a directory is de
     assert.equal(renameResponse.status, 200);
     assert.equal((await renameResponse.json()).data.name, '深度学习');
 
-    const deleteResponse = await fetch(`${baseUrl}/api/directories/${directory.id}`, {
+    const deleteResponse = await fetch(`${baseUrl}/api/directories/${targetDirectory.id}`, {
       method: 'DELETE',
     });
     assert.equal(deleteResponse.status, 200);
@@ -130,7 +161,10 @@ test('directory API organizes words and safely moves them when a directory is de
     const movedWord = (await (await fetch(`${baseUrl}/api/words/${word.id}`)).json()).data;
     assert.equal(movedWord.directoryId, 'default');
     const remainingDirectories = (await (await fetch(`${baseUrl}/api/directories`)).json()).data;
-    assert.deepEqual(remainingDirectories.map((item) => item.id), ['default']);
+    assert.deepEqual(
+      remainingDirectories.map((item) => item.id),
+      ['default', directory.id],
+    );
 
     const deleteDefaultResponse = await fetch(`${baseUrl}/api/directories/default`, {
       method: 'DELETE',
@@ -157,6 +191,7 @@ test('extension API verifies token and rejects duplicate words', async () => {
       meaning: '神经元',
       examples: ['A neuron receives signals.'],
       notes: '神经网络的基本单元',
+      directoryId: 'extension-must-not-choose-a-directory',
     };
     const unauthorized = await fetch(`${baseUrl}/api/extension/words`, {
       method: 'POST',
@@ -177,7 +212,9 @@ test('extension API verifies token and rejects duplicate words', async () => {
 
     const created = await create();
     assert.equal(created.status, 201);
-    assert.equal((await created.json()).data.notes, '神经网络的基本单元');
+    const createdWord = (await created.json()).data;
+    assert.equal(createdWord.notes, '神经网络的基本单元');
+    assert.equal(createdWord.directoryId, 'default');
 
     const duplicate = await fetch(`${baseUrl}/api/extension/words`, {
       method: 'POST',

@@ -340,6 +340,29 @@
           </label>
         </form>
 
+        <form class="directory-move-form" id="directoryMoveForm">
+          <div class="directory-move-heading">
+            <div>
+              <span>批量移动</span>
+              <small id="directoryMoveSummary">把一个目录中的全部单词移动到另一个目录</small>
+            </div>
+          </div>
+          <div class="directory-move-row">
+            <label>
+              <span>来源目录</span>
+              <select id="moveSourceSelect" aria-label="来源目录"></select>
+            </label>
+            <span class="directory-move-arrow" aria-hidden="true">→</span>
+            <label>
+              <span>目标目录</span>
+              <select id="moveTargetSelect" aria-label="目标目录"></select>
+            </label>
+            <button class="secondary-button directory-move-button" id="moveDirectoryWordsButton" type="submit">
+              移动全部
+            </button>
+          </div>
+        </form>
+
         <div class="directory-manager-list" id="directoryManagerList"></div>
       </div>
     </dialog>

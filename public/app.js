@@ -79,6 +79,11 @@ const elements = {
   directoryNameError: document.querySelector('#directoryNameError'),
   submitDirectoryButton: document.querySelector('#submitDirectoryButton'),
   cancelDirectoryEditButton: document.querySelector('#cancelDirectoryEditButton'),
+  directoryMoveForm: document.querySelector('#directoryMoveForm'),
+  moveSourceSelect: document.querySelector('#moveSourceSelect'),
+  moveTargetSelect: document.querySelector('#moveTargetSelect'),
+  directoryMoveSummary: document.querySelector('#directoryMoveSummary'),
+  moveDirectoryWordsButton: document.querySelector('#moveDirectoryWordsButton'),
   directoryManagerList: document.querySelector('#directoryManagerList'),
   deleteDialog: document.querySelector('#deleteDialog'),
   deleteWordName: document.querySelector('#deleteWordName'),
@@ -555,6 +560,45 @@ function renderDirectoryManager() {
   elements.directoryManagerList.replaceChildren(fragment);
 }
 
+function renderDirectoryMoveOptions(preferredSourceId = '') {
+  const previousSourceId = preferredSourceId || elements.moveSourceSelect.value;
+  const previousTargetId = elements.moveTargetSelect.value;
+  const fallbackSource = state.directories.find((directory) => directory.wordCount > 0)
+    || state.directories[0];
+  const sourceId = state.directories.some((directory) => directory.id === previousSourceId)
+    ? previousSourceId
+    : fallbackSource?.id || '';
+
+  const sourceFragment = document.createDocumentFragment();
+  state.directories.forEach((directory) => {
+    const option = createElement('option', '', `${directory.name}（${directory.wordCount}）`);
+    option.value = directory.id;
+    sourceFragment.append(option);
+  });
+  elements.moveSourceSelect.replaceChildren(sourceFragment);
+  elements.moveSourceSelect.value = sourceId;
+
+  const targetDirectories = state.directories.filter((directory) => directory.id !== sourceId);
+  const targetFragment = document.createDocumentFragment();
+  targetDirectories.forEach((directory) => {
+    const option = createElement('option', '', directory.name);
+    option.value = directory.id;
+    targetFragment.append(option);
+  });
+  elements.moveTargetSelect.replaceChildren(targetFragment);
+  elements.moveTargetSelect.value = targetDirectories.some(
+    (directory) => directory.id === previousTargetId,
+  ) ? previousTargetId : targetDirectories[0]?.id || '';
+
+  const source = state.directories.find((directory) => directory.id === sourceId);
+  const count = source?.wordCount || 0;
+  elements.directoryMoveSummary.textContent = source
+    ? `“${source.name}”当前有 ${count} 个单词`
+    : '请先创建目录';
+  elements.moveDirectoryWordsButton.textContent = count ? `移动 ${count} 个` : '移动全部';
+  elements.moveDirectoryWordsButton.disabled = !source || !targetDirectories.length || count === 0;
+}
+
 function applyDirectories(directories) {
   state.directories = directories;
   if (state.desktopDirectoryId
@@ -562,7 +606,10 @@ function applyDirectories(directories) {
     state.desktopDirectoryId = '';
   }
   renderDesktopDirectoryNavigation();
-  if (elements.directoryDialog.open) renderDirectoryManager();
+  if (elements.directoryDialog.open) {
+    renderDirectoryManager();
+    renderDirectoryMoveOptions();
+  }
 }
 
 function setDesktopDirectory(directoryId) {
@@ -584,8 +631,39 @@ function resetDirectoryForm() {
 function openDirectoryDialog() {
   resetDirectoryForm();
   renderDirectoryManager();
+  renderDirectoryMoveOptions(state.desktopDirectoryId);
   elements.directoryDialog.showModal();
   requestAnimationFrame(() => elements.directoryNameInput.focus());
+}
+
+async function moveDirectoryWords(event) {
+  event.preventDefault();
+  const sourceId = elements.moveSourceSelect.value;
+  const targetId = elements.moveTargetSelect.value;
+  const source = state.directories.find((directory) => directory.id === sourceId);
+  const target = state.directories.find((directory) => directory.id === targetId);
+  if (!source || !target || sourceId === targetId || source.wordCount === 0) return;
+
+  const confirmed = window.confirm(
+    `把“${source.name}”中的 ${source.wordCount} 个单词全部移动到“${target.name}”？`,
+  );
+  if (!confirmed) return;
+
+  elements.moveDirectoryWordsButton.disabled = true;
+  elements.moveDirectoryWordsButton.textContent = '移动中…';
+  try {
+    const result = await apiFetch(`/api/directories/${sourceId}/move-words`, {
+      method: 'POST',
+      body: JSON.stringify({ targetDirectoryId: targetId }),
+    });
+    showToast(result.message);
+    await loadWords();
+  } catch (error) {
+    showToast(error.message, 'error');
+  } finally {
+    if (!elements.directoryDialog.open) return;
+    renderDirectoryMoveOptions(sourceId);
+  }
 }
 
 function startDirectoryEdit(directoryId) {
@@ -913,6 +991,10 @@ elements.manageDirectoriesButton.addEventListener('click', openDirectoryDialog);
 elements.closeDirectoryDialogButton.addEventListener('click', () => elements.directoryDialog.close());
 elements.directoryForm.addEventListener('submit', submitDirectory);
 elements.cancelDirectoryEditButton.addEventListener('click', resetDirectoryForm);
+elements.directoryMoveForm.addEventListener('submit', moveDirectoryWords);
+elements.moveSourceSelect.addEventListener('change', () => {
+  renderDirectoryMoveOptions(elements.moveSourceSelect.value);
+});
 elements.directoryManagerList.addEventListener('click', handleDirectoryManagerClick);
 elements.closeDialogButton.addEventListener('click', closeWordDialog);
 elements.cancelDialogButton.addEventListener('click', closeWordDialog);
