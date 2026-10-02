@@ -108,6 +108,22 @@
             </label>
           </div>
 
+          <form class="word-selection-toolbar" id="selectedWordsMoveForm" aria-label="移动所选单词">
+            <label class="word-select-all">
+              <input id="selectAllWords" type="checkbox" disabled />
+              <span>全选当前列表</span>
+            </label>
+            <span class="word-selection-summary" id="selectedWordsSummary" role="status">已选 0 个</span>
+            <button class="text-button" id="clearWordSelectionButton" type="button" disabled>取消选择</button>
+            <label class="word-move-target">
+              <span class="sr-only">所选单词的目标目录</span>
+              <select id="selectedWordsTarget" aria-label="所选单词的目标目录" disabled>
+                <option value="">选择目标目录</option>
+              </select>
+            </label>
+            <button class="secondary-button" id="moveSelectedWordsButton" type="submit" disabled>移动所选</button>
+          </form>
+
           <div class="word-grid" id="wordGrid" aria-live="polite"></div>
 
           <div class="empty-state" id="emptyState" hidden>

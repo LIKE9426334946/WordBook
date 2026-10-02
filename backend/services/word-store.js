@@ -241,6 +241,28 @@ class WordStore {
     return { source, target, movedCount };
   }
 
+  moveWords(wordIds, targetId) {
+    const target = this.state.directories.find((directory) => directory.id === targetId);
+    if (!target) throw new StoreError('DIRECTORY_NOT_FOUND', '没有找到目标目录');
+
+    const selectedIds = new Set(wordIds);
+    const existingIds = new Set(this.state.words.map((word) => word.id));
+    if ([...selectedIds].some((id) => !existingIds.has(id))) {
+      throw new StoreError('NOT_FOUND', '部分单词已不存在，请刷新列表后重新选择');
+    }
+
+    const movedAt = new Date().toISOString();
+    let movedCount = 0;
+    const words = this.state.words.map((word) => {
+      if (!selectedIds.has(word.id) || word.directoryId === targetId) return word;
+      movedCount += 1;
+      return { ...word, directoryId: targetId, updatedAt: movedAt };
+    });
+
+    if (movedCount > 0) this.#persist(words);
+    return { target, movedCount };
+  }
+
   deleteDirectory(id) {
     if (id === DEFAULT_DIRECTORY_ID) {
       throw new StoreError('DEFAULT_DIRECTORY', '默认目录不能删除');

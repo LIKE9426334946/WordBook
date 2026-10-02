@@ -28,6 +28,10 @@ const state = {
   words: [],
   directories: [],
   desktopDirectoryId: '',
+  selectedWordIds: new Set(),
+  movingSelectedWords: false,
+  desktopLoading: true,
+  wordsRequestId: 0,
   editingDirectoryId: '',
   deletingWord: null,
   searchTimer: null,
@@ -46,6 +50,12 @@ const elements = {
   addWordButton: document.querySelector('#addWordButton'),
   emptyAddButton: document.querySelector('#emptyAddButton'),
   wordGrid: document.querySelector('#wordGrid'),
+  selectedWordsMoveForm: document.querySelector('#selectedWordsMoveForm'),
+  selectAllWords: document.querySelector('#selectAllWords'),
+  selectedWordsSummary: document.querySelector('#selectedWordsSummary'),
+  clearWordSelectionButton: document.querySelector('#clearWordSelectionButton'),
+  selectedWordsTarget: document.querySelector('#selectedWordsTarget'),
+  moveSelectedWordsButton: document.querySelector('#moveSelectedWordsButton'),
   emptyState: document.querySelector('#emptyState'),
   emptyTitle: document.querySelector('#emptyTitle'),
   emptyDescription: document.querySelector('#emptyDescription'),
@@ -606,6 +616,7 @@ function applyDirectories(directories) {
     state.desktopDirectoryId = '';
   }
   renderDesktopDirectoryNavigation();
+  renderSelectedWordsTargets();
   if (elements.directoryDialog.open) {
     renderDirectoryManager();
     renderDirectoryMoveOptions();
@@ -727,6 +738,73 @@ function handleDirectoryManagerClick(event) {
   else if (button.dataset.directoryAction === 'delete') deleteDirectory(button.dataset.directoryId);
 }
 
+function renderSelectedWordsTargets() {
+  const previousTarget = elements.selectedWordsTarget.value;
+  const targets = state.directories.filter((directory) => directory.id !== state.desktopDirectoryId);
+  const fragment = document.createDocumentFragment();
+  const placeholder = createElement('option', '', '选择目标目录');
+  placeholder.value = '';
+  fragment.append(placeholder);
+  targets.forEach((directory) => {
+    const option = createElement('option', '', directory.name);
+    option.value = directory.id;
+    fragment.append(option);
+  });
+  elements.selectedWordsTarget.replaceChildren(fragment);
+  elements.selectedWordsTarget.value = targets.some((directory) => directory.id === previousTarget)
+    ? previousTarget : '';
+  updateWordSelection();
+}
+
+function updateWordSelection() {
+  const count = state.selectedWordIds.size;
+  const busy = state.desktopLoading || state.movingSelectedWords;
+  const targetId = elements.selectedWordsTarget.value;
+  const canMove = state.words.some((word) => state.selectedWordIds.has(word.id)
+    && word.directoryId !== targetId);
+  elements.selectedWordsSummary.textContent = `已选 ${count} 个`;
+  elements.selectAllWords.checked = count > 0 && count === state.words.length;
+  elements.selectAllWords.indeterminate = count > 0 && count < state.words.length;
+  elements.selectAllWords.disabled = busy || !state.words.length;
+  elements.clearWordSelectionButton.disabled = busy || !count;
+  elements.selectedWordsTarget.disabled = busy || !count;
+  elements.moveSelectedWordsButton.disabled = busy || !count || !targetId || !canMove;
+  elements.moveSelectedWordsButton.textContent = state.movingSelectedWords ? '移动中…' : '移动所选';
+  elements.wordGrid.querySelectorAll('.word-selection-checkbox').forEach((checkbox) => {
+    checkbox.checked = state.selectedWordIds.has(checkbox.dataset.wordId);
+    checkbox.disabled = busy;
+    checkbox.closest('.word-card').classList.toggle('selected', checkbox.checked);
+  });
+}
+
+function clearWordSelection() {
+  state.selectedWordIds.clear();
+  updateWordSelection();
+}
+
+async function moveSelectedWords(event) {
+  event.preventDefault();
+  if (elements.moveSelectedWordsButton.disabled) return;
+  const wordIds = [...state.selectedWordIds];
+  const targetDirectoryId = elements.selectedWordsTarget.value;
+  state.movingSelectedWords = true;
+  updateWordSelection();
+  try {
+    const result = await apiFetch('/api/words/move', {
+      method: 'POST',
+      body: JSON.stringify({ wordIds, targetDirectoryId }),
+    });
+    clearWordSelection();
+    showToast(result.message);
+    await loadWords();
+  } catch (error) {
+    showToast(error.message, 'error');
+  } finally {
+    state.movingSelectedWords = false;
+    updateWordSelection();
+  }
+}
+
 function renderDesktopWords() {
   elements.wordGrid.replaceChildren();
   const hasWords = state.words.length > 0;
@@ -753,6 +831,13 @@ function renderDesktopWords() {
 
     const header = createElement('div', 'word-card-header');
     const title = createElement('h3', '', word.word);
+    const selectionLabel = createElement('label', 'word-selection-label');
+    const checkbox = createElement('input', 'word-selection-checkbox');
+    checkbox.type = 'checkbox';
+    checkbox.dataset.wordId = word.id;
+    checkbox.setAttribute('aria-label', `选择 ${word.word}`);
+    selectionLabel.append(checkbox, createElement('span', '', word.word));
+    title.replaceChildren(selectionLabel);
     const actions = createElement('div', 'card-actions');
 
     const editButton = createElement('button', 'card-action');
@@ -788,6 +873,7 @@ function renderDesktopWords() {
 
     elements.wordGrid.append(card);
   });
+  updateWordSelection();
 }
 
 async function loadStats() {
@@ -801,8 +887,13 @@ async function loadStats() {
 }
 
 async function loadWords() {
+  const requestId = ++state.wordsRequestId;
+  const mobileLayout = isMobileLayout();
+  if (!mobileLayout) {
+    state.desktopLoading = true;
+    clearWordSelection();
+  }
   try {
-    const mobileLayout = isMobileLayout();
     const params = new URLSearchParams(mobileLayout
       ? { sort: 'updated-desc' }
       : {
@@ -811,6 +902,7 @@ async function loadWords() {
           ...(state.desktopDirectoryId ? { directoryId: state.desktopDirectoryId } : {}),
         });
     const { data, meta } = await apiFetch(`/api/words?${params}`);
+    if (requestId !== state.wordsRequestId) return;
     if (mobileLayout) applyMobileWords(data, meta.directories || []);
     else {
       state.words = data;
@@ -818,9 +910,15 @@ async function loadWords() {
       renderDesktopWords();
     }
   } catch (error) {
+    if (requestId !== state.wordsRequestId) return;
     elements.resultSummary.textContent = '载入失败，请稍后刷新页面';
     if (isMobileLayout()) elements.mobileLearningLoading.hidden = true;
     showToast(error.message, 'error');
+  } finally {
+    if (!mobileLayout && requestId === state.wordsRequestId) {
+      state.desktopLoading = false;
+      updateWordSelection();
+    }
   }
 }
 
@@ -1001,8 +1099,26 @@ elements.cancelDialogButton.addEventListener('click', closeWordDialog);
 elements.wordForm.addEventListener('submit', submitWord);
 elements.cancelDeleteButton.addEventListener('click', () => elements.deleteDialog.close());
 elements.confirmDeleteButton.addEventListener('click', deleteWord);
+elements.wordGrid.addEventListener('change', (event) => {
+  const checkbox = event.target.closest('.word-selection-checkbox');
+  if (!checkbox || state.desktopLoading || state.movingSelectedWords) return;
+  if (checkbox.checked) state.selectedWordIds.add(checkbox.dataset.wordId);
+  else state.selectedWordIds.delete(checkbox.dataset.wordId);
+  updateWordSelection();
+});
+elements.selectAllWords.addEventListener('change', () => {
+  state.selectedWordIds = elements.selectAllWords.checked
+    ? new Set(state.words.map((word) => word.id)) : new Set();
+  updateWordSelection();
+});
+elements.clearWordSelectionButton.addEventListener('click', clearWordSelection);
+elements.selectedWordsTarget.addEventListener('change', updateWordSelection);
+elements.selectedWordsMoveForm.addEventListener('submit', moveSelectedWords);
 elements.searchInput.addEventListener('input', () => {
   clearTimeout(state.searchTimer);
+  state.wordsRequestId += 1;
+  state.desktopLoading = true;
+  clearWordSelection();
   state.searchTimer = setTimeout(() => loadWords(), 220);
 });
 elements.sortSelect.addEventListener('change', () => loadWords());

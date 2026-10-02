@@ -130,6 +130,19 @@ svg { width: 1.25rem; height: 1.25rem; fill: none; stroke: currentColor; stroke-
 .select-wrap select { width: 100%; height: 44px; padding: 0 38px 0 14px; color: var(--ink-soft); background: transparent; border: 0; outline: 0; appearance: none; }
 .select-wrap > svg { position: absolute; right: 12px; width: 16px; pointer-events: none; color: #7b8580; }
 
+.word-selection-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; font-size: 0.78rem; }
+.word-select-all, .word-selection-label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.word-select-all { white-space: nowrap; }
+.word-select-all input, .word-selection-checkbox { width: 18px; height: 18px; margin: 0; flex-shrink: 0; accent-color: var(--pine); cursor: pointer; }
+.word-selection-summary { color: var(--ink-soft); white-space: nowrap; }
+.word-selection-toolbar .text-button { min-height: 36px; padding: 0 8px; font-size: inherit; }
+.word-move-target { flex: 1 1 150px; min-width: 0; max-width: 260px; margin-left: auto; }
+.word-move-target select { width: 100%; min-height: 38px; padding: 0 12px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 9px; }
+.word-selection-toolbar .secondary-button { min-height: 38px; padding: 0 13px; font-size: inherit; }
+.word-selection-toolbar :disabled, .word-selection-checkbox:disabled { opacity: 0.5; cursor: not-allowed; }
+.word-selection-label { min-width: 0; }
+.word-card.selected { border-color: var(--pine); box-shadow: 0 0 0 2px var(--pine-pale); }
+
 .word-grid { margin-top: 19px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
 .word-card { position: relative; min-height: 215px; padding: 23px; overflow: hidden; background: var(--surface); border: 1px solid rgba(100, 109, 104, 0.14); border-radius: var(--radius-md); box-shadow: 0 9px 32px rgba(51, 61, 56, 0.035); transition: transform 180ms ease, box-shadow 180ms ease, border 180ms ease; animation: card-in 260ms ease both; }
 .word-card::after { content: ""; position: absolute; top: 0; right: 0; width: 72px; height: 4px; background: var(--card-accent, var(--pine)); border-radius: 0 0 0 8px; opacity: 0.72; }

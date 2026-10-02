@@ -173,6 +173,93 @@ test('directory API organizes words and safely moves them when a directory is de
   });
 });
 
+test('selected-word move changes only selected words and preserves their content', async () => {
+  await withServer(async (baseUrl) => {
+    const post = (url, body) => fetch(`${baseUrl}${url}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const source = (await (await post('/api/directories', { name: '待整理' })).json()).data;
+    const target = (await (await post('/api/directories', { name: '已整理' })).json()).data;
+    const words = [];
+    for (const [word, directoryId] of [
+      ['alpha', 'default'], ['beta', source.id], ['gamma', source.id], ['delta', target.id],
+    ]) {
+      words.push((await (await post('/api/words', {
+        word, directoryId, meaning: '测试释义', examples: ['Keep this example.'], notes: '保留备注',
+      })).json()).data);
+    }
+    const response = await post('/api/words/move', {
+      wordIds: [words[0].id, words[1].id, words[1].id, words[3].id],
+      targetDirectoryId: target.id,
+    });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).data.movedCount, 2);
+    for (const [index, before] of words.entries()) {
+      const after = (await (await fetch(`${baseUrl}/api/words/${before.id}`)).json()).data;
+      if (index < 2) {
+        assert.deepEqual(after, { ...before, directoryId: target.id, updatedAt: after.updatedAt });
+      } else {
+        assert.deepEqual(after, before);
+      }
+    }
+    const directories = (await (await fetch(`${baseUrl}/api/directories`)).json()).data;
+    assert.equal(directories.find((item) => item.id === 'default').wordCount, 0);
+    assert.equal(directories.find((item) => item.id === source.id).wordCount, 1);
+    assert.equal(directories.find((item) => item.id === target.id).wordCount, 3);
+    const repeated = await post('/api/words/move', {
+      wordIds: [words[0].id, words[1].id], targetDirectoryId: target.id,
+    });
+    assert.equal((await repeated.json()).data.movedCount, 0);
+    const single = await post('/api/words/move', {
+      wordIds: [words[0].id], targetDirectoryId: 'default',
+    });
+    assert.equal((await single.json()).data.movedCount, 1);
+  });
+});
+
+test('invalid selected-word moves never partially move valid words', async () => {
+  await withServer(async (baseUrl) => {
+    const post = (url, body) => fetch(`${baseUrl}${url}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const target = (await (await post('/api/directories', { name: '目标' })).json()).data;
+    const word = (await (await post('/api/words', { word: 'stay', meaning: '保留' })).json()).data;
+    for (const [body, status] of [
+      [{ wordIds: [], targetDirectoryId: target.id }, 400],
+      [{ wordIds: word.id, targetDirectoryId: target.id }, 400],
+      [{ wordIds: [word.id, null], targetDirectoryId: target.id }, 400],
+      [{ wordIds: [word.id] }, 400],
+      [{ wordIds: [word.id], targetDirectoryId: 'missing-directory' }, 404],
+      [{ wordIds: [word.id, 'deleted-word'], targetDirectoryId: target.id }, 404],
+    ]) {
+      assert.equal((await post('/api/words/move', body)).status, status);
+      const unchanged = (await (await fetch(`${baseUrl}/api/words/${word.id}`)).json()).data;
+      assert.deepEqual(unchanged, word);
+    }
+  });
+});
+
+test('selected-word moves persist after reopening the store', () => {
+  const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'wordbook-move-test-'));
+  const dataFile = path.join(temporaryDirectory, 'words.json');
+  try {
+    const store = new WordStore(dataFile);
+    const target = store.createDirectory({ name: '目标' });
+    const selected = store.create({ word: 'move', meaning: '移动', examples: [], notes: '' });
+    const untouched = store.create({ word: 'stay', meaning: '保留', examples: [], notes: '' });
+    store.moveWords([selected.id], target.id);
+    const reopened = new WordStore(dataFile);
+    assert.equal(reopened.getById(selected.id).directoryId, target.id);
+    assert.deepEqual(reopened.getById(untouched.id), untouched);
+  } finally {
+    fs.rmSync(temporaryDirectory, { recursive: true, force: true });
+  }
+});
+
 test('extension API verifies token and rejects duplicate words', async () => {
   await withServer(async (baseUrl) => {
     const preflight = await fetch(`${baseUrl}/api/extension/words`, {

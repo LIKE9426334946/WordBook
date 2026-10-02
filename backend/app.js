@@ -192,6 +192,34 @@ function createApp({
     }
   });
 
+  app.post('/api/words/move', (request, response, next) => {
+    try {
+      const wordIds = request.body?.wordIds;
+      const targetDirectoryId = cleanText(
+        request.body?.targetDirectoryId,
+        MAX_TEXT_LENGTH.directoryId,
+      );
+      if (!Array.isArray(wordIds) || !wordIds.length
+          || wordIds.some((id) => typeof id !== 'string' || !id.trim())
+          || !targetDirectoryId) {
+        const error = new Error('请勾选单词并选择目标目录');
+        error.status = 400;
+        error.code = 'VALIDATION_ERROR';
+        throw error;
+      }
+
+      const result = store.moveWords(wordIds, targetDirectoryId);
+      response.json({
+        data: result,
+        message: result.movedCount
+          ? `已移动 ${result.movedCount} 个单词到“${result.target.name}”`
+          : '所选单词已在目标目录中',
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.get('/api/words/:id', (request, response) => {
     const word = store.getById(request.params.id);
     if (!word) {
