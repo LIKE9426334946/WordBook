@@ -743,6 +743,58 @@ dialog::backdrop { background: rgba(25, 36, 32, 0.38); backdrop-filter: blur(5px
     to { transform: rotate(360deg); }
   }
 
+  .mobile-directory-search {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 20px;
+    padding: 0 12px;
+    min-height: 46px;
+    border: 1px solid #e7e3f7;
+    border-radius: 13px;
+    background: #fff;
+  }
+
+  .mobile-directory-search:focus-within {
+    border-color: #9988e8;
+    box-shadow: 0 0 0 3px #f2efff;
+  }
+
+  .mobile-directory-search > svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: #9386bc;
+  }
+
+  .mobile-directory-search input {
+    width: 100%;
+    min-width: 0;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #393641;
+    font-size: 16px;
+  }
+
+  .mobile-directory-search input::placeholder { color: #aaa4b7; }
+  .mobile-directory-search input::-webkit-search-cancel-button { appearance: none; }
+
+  .mobile-directory-search > button {
+    flex-shrink: 0;
+    min-height: 44px;
+    padding: 0 4px;
+    border: 0;
+    background: transparent;
+    color: #7563df;
+    font-size: 12px;
+  }
+
+  .mobile-directory-search + .mobile-word-list { margin-top: 14px; }
+  .mobile-word-list-copy .mobile-word-search-directory { margin-top: 5px; color: #8b7abc; font-size: 11px; }
+
   .mobile-word-list {
     display: grid;
     gap: 10px;

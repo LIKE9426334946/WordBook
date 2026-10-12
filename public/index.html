@@ -233,12 +233,18 @@
           </button>
           <p id="mobileDirectoryEyebrow">WORD DIRECTORIES</p>
           <h1 id="mobileDirectoryTitle">单词目录</h1>
-          <span id="mobileDirectoryDescription">选择一个目录开始复习</span>
+          <span id="mobileDirectoryDescription" aria-live="polite">选择一个目录开始复习</span>
           <button class="mobile-refresh-button" id="mobileRefreshButton" type="button" aria-label="加载服务器上的最新单词">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7" /><path d="M20 4v7h-7" /></svg>
             <span id="mobileRefreshLabel">刷新</span>
           </button>
         </div>
+        <form class="mobile-directory-search" id="mobileDirectorySearchForm" role="search" aria-label="搜索目录中的单词">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4.5 4.5" /></svg>
+          <label class="sr-only" for="mobileDirectorySearchInput">搜索单词或释义</label>
+          <input id="mobileDirectorySearchInput" type="search" placeholder="搜索全部单词或释义…" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="search" />
+          <button id="mobileDirectorySearchClear" type="button" aria-label="清空单词搜索" hidden>清空</button>
+        </form>
         <ol class="mobile-word-list" id="mobileDirectoryList"></ol>
         <div class="mobile-list-empty" id="mobileDirectoryEmpty" hidden>
           <span aria-hidden="true">☰</span>

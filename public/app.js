@@ -41,6 +41,7 @@ const state = {
   mobileFavoriteIds: loadMobileFavorites(),
   mobileReviewedDirectoryIds: loadMobileReviewedDirectories(),
   mobileOpenDirectoryId: '',
+  mobileDirectoryQuery: '',
   mobileStudyDirectoryId: '',
   mobileDirectoryDirty: true,
   mobileFavoritesDirty: true,
@@ -126,6 +127,9 @@ const elements = {
   mobileDirectoryEyebrow: document.querySelector('#mobileDirectoryEyebrow'),
   mobileDirectoryTitle: document.querySelector('#mobileDirectoryTitle'),
   mobileDirectoryDescription: document.querySelector('#mobileDirectoryDescription'),
+  mobileDirectorySearchForm: document.querySelector('#mobileDirectorySearchForm'),
+  mobileDirectorySearchInput: document.querySelector('#mobileDirectorySearchInput'),
+  mobileDirectorySearchClear: document.querySelector('#mobileDirectorySearchClear'),
   mobileRefreshButton: document.querySelector('#mobileRefreshButton'),
   mobileRefreshLabel: document.querySelector('#mobileRefreshLabel'),
   mobileFavoritesView: document.querySelector('#mobileFavoritesView'),
@@ -288,16 +292,32 @@ function renderMobileDirectory() {
 
   const fragment = document.createDocumentFragment();
   const openDirectory = getOpenMobileDirectory();
-  const items = openDirectory
-    ? state.words.filter((word) => word.directoryId === openDirectory.id)
+  const query = state.mobileDirectoryQuery.trim().toLocaleLowerCase('zh-CN');
+  const showingWords = Boolean(openDirectory || query);
+  const items = showingWords
+    ? state.words.filter((word) => (!openDirectory || word.directoryId === openDirectory.id)
+      && (!query || [word.word, word.meaning].some(
+        (text) => (text || '').toLocaleLowerCase('zh-CN').includes(query),
+      )))
     : state.directories;
 
-  if (openDirectory) {
-    items.forEach((word, index) => fragment.append(createMobileListItem(word, index)));
-    elements.mobileDirectoryBack.hidden = false;
-    elements.mobileDirectoryEyebrow.textContent = 'DIRECTORY WORDS';
-    elements.mobileDirectoryTitle.textContent = openDirectory.name;
-    elements.mobileDirectoryDescription.textContent = `共 ${items.length} 个单词，选择一个开始学习`;
+  if (showingWords) {
+    const directoryNames = new Map(state.directories.map((directory) => [directory.id, directory.name]));
+    items.forEach((word, index) => {
+      const item = createMobileListItem(word, index);
+      if (!openDirectory) {
+        item.querySelector('.mobile-word-list-copy').append(createElement(
+          'small', 'mobile-word-search-directory', directoryNames.get(word.directoryId) || '默认目录',
+        ));
+      }
+      fragment.append(item);
+    });
+    elements.mobileDirectoryBack.hidden = !openDirectory;
+    elements.mobileDirectoryEyebrow.textContent = query ? 'SEARCH RESULTS' : 'DIRECTORY WORDS';
+    elements.mobileDirectoryTitle.textContent = openDirectory?.name || '搜索结果';
+    elements.mobileDirectoryDescription.textContent = query
+      ? `找到 ${items.length} 个单词 · ${openDirectory ? '当前目录' : '全部目录'}`
+      : `共 ${items.length} 个单词，选择一个开始学习`;
   } else {
     items.forEach((directory, index) => fragment.append(createMobileDirectoryItem(directory, index)));
     elements.mobileDirectoryBack.hidden = true;
@@ -307,17 +327,34 @@ function renderMobileDirectory() {
   }
 
   elements.mobileDirectoryList.replaceChildren(fragment);
+  elements.mobileDirectorySearchInput.placeholder = openDirectory
+    ? '搜索当前目录的单词或释义…' : '搜索全部单词或释义…';
+  elements.mobileDirectorySearchClear.hidden = !elements.mobileDirectorySearchInput.value;
   elements.mobileDirectoryEmpty.hidden = items.length > 0;
   elements.mobileDirectoryList.hidden = items.length === 0;
   if (!items.length) {
     const title = elements.mobileDirectoryEmpty.querySelector('h2');
     const description = elements.mobileDirectoryEmpty.querySelector('p');
-    title.textContent = openDirectory ? '这个目录还是空的' : '目录还是空的';
-    description.textContent = openDirectory
-      ? '请在电脑端把单词移动到这个目录。'
-      : '请先在电脑端创建目录并录入学习内容。';
+    title.textContent = query ? '没有找到匹配的单词' : openDirectory ? '这个目录还是空的' : '目录还是空的';
+    description.textContent = query
+      ? '换一个关键词，或清空搜索查看完整列表。'
+      : openDirectory
+        ? '请在电脑端把单词移动到这个目录。'
+        : '请先在电脑端创建目录并录入学习内容。';
   }
   state.mobileDirectoryDirty = false;
+}
+
+function searchMobileDirectory() {
+  state.mobileDirectoryQuery = elements.mobileDirectorySearchInput.value;
+  state.mobileDirectoryDirty = true;
+  if (state.mobileView === 'directory') renderMobileDirectory();
+}
+
+function resetMobileDirectorySearch() {
+  state.mobileDirectoryQuery = '';
+  elements.mobileDirectorySearchInput.value = '';
+  state.mobileDirectoryDirty = true;
 }
 
 function renderMobileFavorites() {
@@ -421,6 +458,7 @@ function applyMobileWords(words, directories = state.directories) {
 
 function setMobileView(view) {
   if (view === 'directory') {
+    if (state.mobileOpenDirectoryId) resetMobileDirectorySearch();
     state.mobileOpenDirectoryId = '';
     state.mobileDirectoryDirty = true;
   }
@@ -432,6 +470,9 @@ function setMobileView(view) {
 
 function openMobileWord(wordId) {
   if (state.mobileOpenDirectoryId) state.mobileStudyDirectoryId = state.mobileOpenDirectoryId;
+  else if (state.mobileView === 'directory' && state.mobileDirectoryQuery.trim()) {
+    state.mobileStudyDirectoryId = state.words.find((word) => word.id === wordId)?.directoryId || '';
+  }
   else state.mobileStudyDirectoryId = '';
   const wordIndex = getMobileStudyWords().findIndex((word) => word.id === wordId);
   if (wordIndex < 0) return;
@@ -441,6 +482,7 @@ function openMobileWord(wordId) {
 
 function openMobileDirectory(directoryId) {
   if (!state.directories.some((directory) => directory.id === directoryId)) return;
+  resetMobileDirectorySearch();
   state.mobileOpenDirectoryId = directoryId;
   state.mobileDirectoryDirty = true;
   renderActiveMobileView();
@@ -448,6 +490,7 @@ function openMobileDirectory(directoryId) {
 }
 
 function closeMobileDirectory() {
+  resetMobileDirectorySearch();
   state.mobileOpenDirectoryId = '';
   state.mobileDirectoryDirty = true;
   renderActiveMobileView();
@@ -1133,6 +1176,20 @@ elements.mobileStudyTab.addEventListener('click', () => setMobileView('study'));
 elements.mobileFavoritesTab.addEventListener('click', () => setMobileView('favorites'));
 elements.mobileRefreshButton.addEventListener('click', refreshMobileWords);
 elements.mobileDirectoryBack.addEventListener('click', closeMobileDirectory);
+elements.mobileDirectorySearchInput.addEventListener('input', (event) => {
+  if (!event.isComposing) searchMobileDirectory();
+});
+elements.mobileDirectorySearchInput.addEventListener('compositionend', searchMobileDirectory);
+elements.mobileDirectorySearchForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  searchMobileDirectory();
+  elements.mobileDirectorySearchInput.blur();
+});
+elements.mobileDirectorySearchClear.addEventListener('click', () => {
+  resetMobileDirectorySearch();
+  renderMobileDirectory();
+  elements.mobileDirectorySearchInput.focus();
+});
 elements.mobileDirectoryList.addEventListener('click', handleMobileListClick);
 elements.mobileFavoritesList.addEventListener('click', handleMobileListClick);
 
