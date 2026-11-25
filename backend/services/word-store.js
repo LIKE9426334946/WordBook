@@ -98,6 +98,7 @@ class WordStore {
       return matchesQuery && matchesDirectory && matchesSubdirectory;
     });
 
+    if (sort === 'created-asc') return filtered.sort((a, b) => Number(a.id) - Number(b.id));
     if (sort === 'created-desc') return filtered.sort((a, b) => Number(b.id) - Number(a.id));
     if (sort === 'word-asc') return filtered.sort((a, b) => a.word.localeCompare(b.word, 'en', { sensitivity: 'base' }));
     return filtered;
@@ -182,16 +183,16 @@ class WordStore {
   deleteSubdirectory(directoryId, subdirectoryId) {
     const directory = this.#getDirectory(directoryId);
     const subdirectory = this.#getSubdirectory(directory, subdirectoryId);
-    const fallbackId = directory.subdirectories[0].id;
-    if (subdirectoryId === fallbackId) {
-      throw new StoreError('DEFAULT_SUBDIRECTORY', '默认子目录不能删除');
+    const subdirectories = directory.subdirectories.filter((item) => item.id !== subdirectoryId);
+    const fallback = subdirectories[0];
+    if (!fallback) {
+      throw new StoreError('DEFAULT_SUBDIRECTORY', '每个目录至少需要保留一个子目录');
     }
 
     const words = this.state.words.map((word) => (
       word.directoryId === directoryId && word.subdirectoryId === subdirectoryId
-        ? { ...word, subdirectoryId: fallbackId } : word
+        ? { ...word, subdirectoryId: fallback.id } : word
     ));
-    const subdirectories = directory.subdirectories.filter((item) => item.id !== subdirectoryId);
     this.#updateSubdirectories(directory, subdirectories, { words });
     return subdirectory;
   }

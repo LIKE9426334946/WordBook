@@ -194,7 +194,7 @@ svg { width: 1.25rem; height: 1.25rem; fill: none; stroke: currentColor; stroke-
 .desktop-directory-parent,
 .desktop-directory-child {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 28px;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
 }
 
@@ -217,7 +217,10 @@ svg { width: 1.25rem; height: 1.25rem; fill: none; stroke: currentColor; stroke-
 .desktop-directory-parent .desktop-directory-item { padding-left: 3px; }
 .desktop-directory-toggle[aria-expanded="false"] + .contains-selection { color: var(--pine-dark); background: #e1e9dd; }
 
-.desktop-directory-edit {
+.desktop-subdirectory-actions { display: flex; gap: 2px; padding-left: 2px; }
+
+.desktop-directory-edit,
+.desktop-subdirectory-delete {
   display: grid;
   width: 26px;
   height: 28px;
@@ -231,8 +234,13 @@ svg { width: 1.25rem; height: 1.25rem; fill: none; stroke: currentColor; stroke-
 }
 
 .desktop-directory-edit:hover { color: var(--pine-dark); background: #dce7dc; }
-.desktop-directory-edit:focus-visible { outline-offset: -1px; }
-.desktop-directory-edit svg { width: 14px; height: 14px; }
+.desktop-subdirectory-delete { color: var(--rose); }
+.desktop-subdirectory-delete:hover { background: var(--rose-pale); }
+.desktop-subdirectory-delete:disabled { opacity: 0.5; cursor: wait; }
+.desktop-directory-edit:focus-visible,
+.desktop-subdirectory-delete:focus-visible { outline-offset: -1px; }
+.desktop-directory-edit svg,
+.desktop-subdirectory-delete svg { width: 14px; height: 14px; }
 
 .desktop-subdirectory-list {
   margin: 0 0 4px 37px;

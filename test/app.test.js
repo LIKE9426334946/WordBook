@@ -473,6 +473,10 @@ test('short IDs remain unique after deletion and preserve recent ordering after 
     const again = new WordStore(dataFile);
     assert.equal(again.list({ sort: 'updated-desc' })[0].id, original.id);
     assert.equal(again.list({ sort: 'created-desc' })[0].id, next.id);
+    assert.deepEqual(
+      again.list({ sort: 'created-asc', subdirectoryId: child.id }).map((word) => word.id),
+      [...words.slice(0, -1).map((word) => word.id), next.id],
+    );
     assert.equal(again.list({ sort: 'word-asc' })[0].word, 'another');
     assert.deepEqual(again.stats(), { total: 6, addedToday: 6 });
     const stored = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
@@ -545,7 +549,13 @@ test('subdirectory API groups words, enforces the parent, and keeps words when f
 
     assert.equal((await request(`${pathOf(notes)}/${otherMethods.id}`, 'DELETE')).status, 200);
     assert.equal((await request(`/api/words/${model.id}`)).data.subdirectoryId, notes.subdirectories[0].id);
-    assert.equal((await request(`${pathOf(notes)}/${notes.subdirectories[0].id}`, 'DELETE')).status, 400);
+    const { data: replacement } = await request(pathOf(notes), 'POST', { name: '整理' });
+    assert.equal((await request(`${pathOf(notes)}/${notes.subdirectories[0].id}`, 'DELETE')).status, 200);
+    const afterDelete = (await request('/api/directories')).data.find((directory) => directory.id === notes.id);
+    assert.equal(afterDelete.defaultSubdirectoryId, replacement.id);
+    assert.equal(afterDelete.subdirectories[0].wordCount, 2);
+    assert.equal((await request(`/api/words/${model.id}`)).data.subdirectoryId, replacement.id);
+    assert.equal((await request(`${pathOf(notes)}/${replacement.id}`, 'DELETE')).status, 400);
     assert.equal((await request(`/api/directories/${notes.id}`, 'DELETE')).status, 200);
     const finalWords = (await request('/api/words')).data;
     assert.equal(finalWords.length, 2);

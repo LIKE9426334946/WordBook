@@ -650,6 +650,25 @@ function createDesktopDirectoryEditButton(directory, parentId = '') {
   return button;
 }
 
+function canDeleteDirectory(directory, subdirectoryId) {
+  return subdirectoryId ? directory.subdirectories.length > 1 : directory.id !== DEFAULT_DIRECTORY_ID;
+}
+
+function createDesktopSubdirectoryDeleteButton(directory, subdirectory) {
+  const button = createElement('button', 'desktop-subdirectory-delete');
+  button.type = 'button';
+  button.id = `desktop-subdirectory-delete-${subdirectory.id}`;
+  button.title = `删除子目录 ${subdirectory.name}`;
+  button.setAttribute('aria-label', button.title);
+  button.innerHTML = icons.delete;
+  button.addEventListener('click', () => deleteDirectory({
+    directoryId: directory.id,
+    subdirectoryId: subdirectory.id,
+    button,
+  }));
+  return button;
+}
+
 function setDirectoryExpanded(button, children, expanded) {
   const label = `${expanded ? '折叠' : '展开'} ${button.dataset.directoryName}`;
   button.setAttribute('aria-expanded', String(expanded));
@@ -697,10 +716,12 @@ function renderDesktopDirectoryNavigation() {
 
     for (const subdirectory of directory.subdirectories) {
       const item = createElement('li', 'desktop-directory-child');
-      item.append(
-        createDesktopDirectoryButton(subdirectory, directory.id),
-        createDesktopDirectoryEditButton(subdirectory, directory.id),
-      );
+      const actions = createElement('div', 'desktop-subdirectory-actions');
+      actions.append(createDesktopDirectoryEditButton(subdirectory, directory.id));
+      if (canDeleteDirectory(directory, subdirectory.id)) {
+        actions.append(createDesktopSubdirectoryDeleteButton(directory, subdirectory));
+      }
+      item.append(createDesktopDirectoryButton(subdirectory, directory.id), actions);
       children.append(item);
     }
     group.append(parentRow, children);
@@ -787,8 +808,7 @@ function renderDirectoryEditor() {
   elements.submitDirectoryButton.disabled = busy;
   elements.addSubdirectoryButton.hidden = creating || Boolean(subdirectoryId);
   elements.addSubdirectoryButton.disabled = busy;
-  elements.deleteDirectoryButton.hidden = !entry || entry.id === DEFAULT_DIRECTORY_ID
-    || entry.id === directory?.defaultSubdirectoryId;
+  elements.deleteDirectoryButton.hidden = !entry || !canDeleteDirectory(directory, subdirectoryId);
   elements.deleteDirectoryButton.disabled = busy;
   elements.deleteDirectoryButton.textContent = subdirectoryId ? '删除子目录' : '删除目录';
   elements.directoryActions.hidden = elements.addSubdirectoryButton.hidden && elements.deleteDirectoryButton.hidden;
@@ -811,7 +831,7 @@ function openDirectoryDialog({ directoryId = '', subdirectoryId = '', creating =
 }
 
 async function finishDirectoryChange(editor, message) {
-  if (state.directoryEditor === editor) elements.directoryDialog.close();
+  if (editor && state.directoryEditor === editor) elements.directoryDialog.close();
   showToast(message);
   await loadWords();
 }
@@ -900,18 +920,27 @@ async function submitDirectory(event) {
   }
 }
 
-async function deleteDirectory() {
-  const editor = state.directoryEditor;
-  const entry = getEditedDirectory();
-  if (!entry || editor.busy || elements.deleteDirectoryButton.hidden) return;
-  const { directoryId, subdirectoryId } = editor;
-  const description = subdirectoryId ? '其中的单词会移入同一目录的默认子目录。'
-    : '该目录及其子目录会一起移除，单词会移入默认目录的默认子目录。';
+async function deleteDirectory({ directoryId, subdirectoryId = '', button, editor = null }) {
+  const directory = getDirectory(directoryId);
+  const entry = subdirectoryId ? directory?.subdirectories.find((item) => item.id === subdirectoryId) : directory;
+  if (!entry || !canDeleteDirectory(directory, subdirectoryId) || button.disabled || editor?.busy) return;
+
+  let description = '该目录及其子目录会一起移除，单词会移入默认目录的默认子目录。';
+  if (subdirectoryId) {
+    const fallback = directory.subdirectories.find((item) => item.id !== subdirectoryId);
+    description = `其中的单词会移入「${fallback.name}」。`;
+    if (subdirectoryId === directory.defaultSubdirectoryId) {
+      description += `「${fallback.name}」将成为该目录的默认子目录。`;
+    }
+  }
   if (!window.confirm(`删除“${entry.name}”？${description}`)) return;
 
-  editor.busy = true;
-  elements.directoryActionError.textContent = '';
-  renderDirectoryEditor();
+  button.disabled = true;
+  if (editor) {
+    editor.busy = true;
+    elements.directoryActionError.textContent = '';
+    renderDirectoryEditor();
+  }
   try {
     const result = await apiFetch(directoryEndpoint(directoryId, subdirectoryId), { method: 'DELETE' });
     if (!subdirectoryId && state.desktopExpandedDirectoryIds.delete(directoryId)) {
@@ -925,8 +954,11 @@ async function deleteDirectory() {
   } catch (error) {
     showDirectoryError(editor, error.message, elements.directoryActionError);
   } finally {
-    editor.busy = false;
-    if (state.directoryEditor === editor && elements.directoryDialog.open) renderDirectoryEditor();
+    button.disabled = false;
+    if (editor) {
+      editor.busy = false;
+      if (state.directoryEditor === editor && elements.directoryDialog.open) renderDirectoryEditor();
+    }
   }
 }
 
@@ -1053,7 +1085,7 @@ async function loadStats() {
 }
 
 function mobileWordParams(extra = {}) {
-  const params = new URLSearchParams({ sort: 'updated-desc', ...extra });
+  const params = new URLSearchParams({ sort: 'created-asc', ...extra });
   if (pendingLegacyIds.words?.size || pendingLegacyIds.directories?.size) params.set('legacyIds', '1');
   return params;
 }
@@ -1287,7 +1319,16 @@ elements.directoryForm.addEventListener('submit', submitDirectory);
 elements.addSubdirectoryButton.addEventListener('click', () => {
   openDirectoryDialog({ directoryId: state.directoryEditor.directoryId });
 });
-elements.deleteDirectoryButton.addEventListener('click', deleteDirectory);
+elements.deleteDirectoryButton.addEventListener('click', () => {
+  const editor = state.directoryEditor;
+  if (!editor || editor.creating) return;
+  deleteDirectory({
+    directoryId: editor.directoryId,
+    subdirectoryId: editor.subdirectoryId,
+    button: elements.deleteDirectoryButton,
+    editor,
+  });
+});
 elements.directoryMoveForm.addEventListener('submit', moveDirectoryWords);
 elements.moveTargetSelect.addEventListener('change', renderDirectoryMoveOptions);
 elements.closeDialogButton.addEventListener('click', closeWordDialog);

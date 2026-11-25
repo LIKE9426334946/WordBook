@@ -80,6 +80,7 @@ test('desktop directory actions belong to each row and can move its words', () =
   assert.doesNotMatch(html, /id="(?:manageDirectoriesButton|directoryManagerList|moveSourceSelect)"/);
   assert.match(script, /createDesktopDirectoryEditButton\(directory\)/);
   assert.match(script, /createDesktopDirectoryEditButton\(subdirectory, directory\.id\)/);
+  assert.match(script, /actions\.append\(createDesktopSubdirectoryDeleteButton\(directory, subdirectory\)\)/);
   assert.match(script, /async function moveDirectoryWords\(event\)/);
   assert.match(script, /const source = getEditedDirectory\(entries\)/);
   assert.match(script, /directoryEndpoint\(source\.directoryId \|\| source\.id\)\}\/move-words/);
