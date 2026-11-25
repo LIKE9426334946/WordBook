@@ -104,6 +104,12 @@ test('favorites stay local and do not add a server word field', () => {
   assert.doesNotMatch(formMarkup, /favorite/i);
 });
 
+test('opening a favorite scopes the mobile study sequence to favorites', () => {
+  assert.match(script, /state\.mobileStudyFavoritesOnly = state\.mobileView === 'favorites'/);
+  assert.match(script, /function getMobileStudyWords\(\) \{\s+if \(state\.mobileStudyFavoritesOnly\) return getMobileFavorites\(\)/);
+  assert.match(script, /function showNextMobileWord\(\) \{\s+const studyWords = getMobileStudyWords\(\)/);
+});
+
 test('mobile details include only the supported learning fields', () => {
   for (const id of [
     'mobileMeaning',

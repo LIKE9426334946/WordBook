@@ -50,6 +50,7 @@ const state = {
   mobileDirectoryQuery: '',
   mobileDirectorySearchOpen: false,
   mobileStudySubdirectoryId: '',
+  mobileStudyFavoritesOnly: false,
   mobileDirectoryDirty: true,
   mobileFavoritesDirty: true,
 };
@@ -230,8 +231,26 @@ function getMobileFavorites() {
 }
 
 function getMobileStudyWords() {
+  if (state.mobileStudyFavoritesOnly) return getMobileFavorites();
   if (!state.mobileStudySubdirectoryId) return state.words;
   return state.words.filter((word) => word.subdirectoryId === state.mobileStudySubdirectoryId);
+}
+
+function restoreMobileStudyWord(wordId) {
+  const studyWords = getMobileStudyWords();
+  const index = studyWords.findIndex((word) => word.id === wordId);
+  state.mobileIndex = index >= 0
+    ? index
+    : Math.min(state.mobileIndex, Math.max(studyWords.length - 1, 0));
+
+  if (index < 0) {
+    state.mobileExpanded = false;
+    state.mobileDirectoryDirty = true;
+  }
+  if (state.mobileStudyFavoritesOnly && studyWords.length === 0) {
+    state.mobileStudyFavoritesOnly = false;
+    if (state.mobileView === 'study') state.mobileView = 'favorites';
+  }
 }
 
 function getOpenMobileDirectory() {
@@ -491,13 +510,7 @@ function applyMobileWords(words, { directories = [], legacyIds } = {}) {
   if (state.mobileStudySubdirectoryId && !getDirectoryEntries().some((item) => item.id === state.mobileStudySubdirectoryId)) {
     state.mobileStudySubdirectoryId = words.find((word) => word.id === currentWordId)?.subdirectoryId || '';
   }
-  const studyWords = getMobileStudyWords();
-  const preservedIndex = currentWordId
-    ? studyWords.findIndex((word) => word.id === currentWordId)
-    : -1;
-  state.mobileIndex = preservedIndex >= 0
-    ? preservedIndex
-    : Math.min(state.mobileIndex, Math.max(studyWords.length - 1, 0));
+  restoreMobileStudyWord(currentWordId);
   state.mobileDirectoryDirty = true;
   state.mobileFavoritesDirty = true;
   const refreshedAt = new Date().toLocaleString('zh-CN', { hour12: false });
@@ -532,6 +545,7 @@ function openMobileWord(wordId) {
   const word = state.words.find((item) => item.id === wordId);
   if (!word) return;
   state.mobileStudySubdirectoryId = state.mobileView === 'directory' ? word.subdirectoryId : '';
+  state.mobileStudyFavoritesOnly = state.mobileView === 'favorites';
   state.mobileIndex = getMobileStudyWords().findIndex((item) => item.id === wordId);
   state.mobileExpanded = false;
   state.mobileDirectoryDirty = true;
@@ -571,6 +585,7 @@ function toggleMobileDirectoryReviewed(directoryId) {
 }
 
 function toggleMobileFavorite(wordId) {
+  const currentWord = getMobileStudyWords()[state.mobileIndex];
   if (state.mobileFavoriteIds.has(wordId)) {
     state.mobileFavoriteIds.delete(wordId);
     showToast('已取消收藏');
@@ -581,7 +596,14 @@ function toggleMobileFavorite(wordId) {
   saveStoredIds(MOBILE_FAVORITES_KEY, state.mobileFavoriteIds);
   state.mobileFavoritesDirty = true;
 
-  const currentWord = getMobileStudyWords()[state.mobileIndex];
+  if (state.mobileStudyFavoritesOnly) {
+    const wasStudying = state.mobileView === 'study';
+    restoreMobileStudyWord(currentWord?.id);
+    renderActiveMobileView();
+    if (wasStudying) window.scrollTo({ top: 0, behavior: 'auto' });
+    return;
+  }
+
   if (currentWord?.id === wordId) updateMobileFavoriteButton(currentWord);
   if (state.mobileView === 'favorites') renderMobileFavorites();
 }
