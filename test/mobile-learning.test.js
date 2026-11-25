@@ -149,10 +149,13 @@ test('mobile rendering avoids rebuilding hidden or unchanged large lists', () =>
   assert.doesNotMatch(styles.slice(mobileStylesStart, reducedMotionStart), /backdrop-filter/);
 });
 
-test('mobile details use the StudyApp heading and body sizes', () => {
+test('mobile details enlarge the meaning and display examples without markers', () => {
   assert.match(styles, /\.mobile-detail-section h2\s*\{[^}]*font-size: 18px;/);
   assert.match(styles, /\.mobile-detail-section h2 > span\s*\{[^}]*width: 29px;[^}]*height: 29px;/);
   assert.match(styles, /\.mobile-detail-section p,\s*\.mobile-example-list\s*\{[^}]*font-size: 14px;/);
+  assert.match(styles, /#mobileMeaning\s*\{[^}]*font-size: 16px;/);
+  assert.match(html, /<ul\b[^>]*\bid="mobileExampleList"/);
+  assert.match(styles, /\.mobile-example-list\s*\{\s*padding: 0;\s*list-style: none;/);
 });
 
 test('desktop editor exposes exactly word, meaning, examples and notes', () => {

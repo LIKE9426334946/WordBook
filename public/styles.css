@@ -814,8 +814,11 @@ dialog::backdrop { background: rgba(25, 36, 32, 0.38); backdrop-filter: blur(5px
     white-space: pre-wrap;
   }
 
+  #mobileMeaning { font-size: 16px; }
+
   .mobile-example-list {
-    padding-inline-start: 24px;
+    padding: 0;
+    list-style: none;
   }
 
   .mobile-example-list li + li {
