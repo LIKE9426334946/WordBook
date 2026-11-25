@@ -56,7 +56,7 @@ test('mobile catalog opens directories and subdirectories with local review mark
 
   assert.match(script, /wordbook\.mobile\.reviewed-directories\.v1/);
   assert.match(script, /wordbook\.mobile\.reviewed-directories\.v2/);
-  assert.match(script, /saveMobileIds\(MOBILE_REVIEWED_DIRECTORIES_KEY, state\.mobileReviewedDirectoryIds\)/);
+  assert.match(script, /saveStoredIds\(MOBILE_REVIEWED_DIRECTORIES_KEY, state\.mobileReviewedDirectoryIds\)/);
   assert.match(script, /function createMobileDirectoryItem\(directory, index,/);
   assert.match(script, /dataset\.mobileAction = 'toggle-directory-review'/);
   assert.match(script, /dataset\.mobileAction = 'open-directory'/);
@@ -89,7 +89,7 @@ test('favorites stay local and do not add a server word field', () => {
   assert.match(html, /id="mobileFavoriteButton"/);
   assert.match(script, /wordbook\.mobile\.favorites\.v1/);
   assert.match(script, /wordbook\.mobile\.favorites\.v2/);
-  assert.match(script, /saveMobileIds\(MOBILE_FAVORITES_KEY, state\.mobileFavoriteIds\)/);
+  assert.match(script, /saveStoredIds\(MOBILE_FAVORITES_KEY, state\.mobileFavoriteIds\)/);
   assert.match(script, /function toggleMobileFavorite\(wordId\)/);
   assert.match(script, /function getMobileFavorites\(\)/);
 

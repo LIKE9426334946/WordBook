@@ -22,40 +22,37 @@
               <path d="M29 10.5c-4.5 0-7.5 1.5-9 4.3v16.1c1.9-2.3 4.8-3.4 9-3.4V10.5Z" />
             </svg>
           </span>
-          <span>
-            <strong>WordBook</strong>
-            <small>阅读生词本</small>
-          </span>
+          <strong>WordBook</strong>
         </a>
 
-        <nav class="side-nav" aria-label="主导航">
-          <button class="nav-item active" id="allWordsNav" type="button" data-directory-id="">
+        <nav class="side-nav" aria-labelledby="directoryHeading">
+          <div class="sidebar-heading">
+            <h2 id="directoryHeading">目录</h2>
+            <button class="manage-directories-button" id="manageDirectoriesButton" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h6l2 2h8v10H4V7Z" /><path d="M12 13v4M10 15h4" /></svg>
+              管理目录
+            </button>
+          </div>
+          <button class="nav-item active" id="allWordsNav" type="button" aria-current="true">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M5 4.8A2.8 2.8 0 0 1 7.8 2H20v17H7.8A2.8 2.8 0 0 0 5 21.8V4.8Z" />
               <path d="M5 19V5a3 3 0 0 0-3 3v11a3 3 0 0 0 3 3h15" />
             </svg>
-            全部单词
+            <span>全部单词</span>
+            <small class="directory-count" id="totalStat"></small>
           </button>
-          <div class="desktop-directory-list" id="desktopDirectoryList"></div>
-          <button class="manage-directories-button" id="manageDirectoriesButton" type="button">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h6l2 2h8v10H4V7Z" /><path d="M12 13v4M10 15h4" /></svg>
-            管理目录
-          </button>
+          <ul class="desktop-directory-list" id="desktopDirectoryList"></ul>
         </nav>
-
-        <div class="sidebar-note">
-          <span class="note-icon" aria-hidden="true">⌁</span>
-          <p>以后在 PDF 中选中单词，就能通过 Edge 扩展直接收藏到这里。</p>
-        </div>
-        <p class="sidebar-footer">Quiet words, steady progress.</p>
       </aside>
 
       <main class="main-content">
         <header class="topbar">
-          <div>
-            <p class="eyebrow" id="todayLabel">今天也读一点</p>
-            <h1>我的单词本</h1>
-            <p class="subtitle">把阅读时遇见的词，慢慢变成自己的词。</p>
+          <div class="collection-heading">
+            <h1 id="desktopCollectionTitle">全部单词</h1>
+            <div class="collection-meta">
+              <span id="resultSummary" role="status">正在加载单词…</span>
+              <span class="today-count">今日新增 <strong id="todayStat">0</strong></span>
+            </div>
           </div>
           <button class="primary-button" id="addWordButton" type="button">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
@@ -63,39 +60,13 @@
           </button>
         </header>
 
-        <section class="stats-grid" aria-label="单词本统计">
-          <article class="stat-card stat-total">
-            <span class="stat-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M6 3h12a2 2 0 0 1 2 2v16H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" /><path d="M8 8h8M8 12h6" /></svg>
-            </span>
-            <div><strong id="totalStat">0</strong><span>已收录单词</span></div>
-          </article>
-          <article class="stat-card stat-today">
-            <span class="stat-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Z" /></svg>
-            </span>
-            <div><strong id="todayStat">0</strong><span>今天新添加</span></div>
-          </article>
-        </section>
-
-        <section class="collection-section">
-          <div class="collection-heading">
-            <div>
-              <h2>词语收藏</h2>
-              <p id="resultSummary">正在载入你的单词……</p>
-            </div>
-            <div class="view-controls" aria-label="列表显示方式">
-              <button class="icon-button active" type="button" title="卡片视图" aria-label="卡片视图">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
-              </button>
-            </div>
-          </div>
-
+        <section class="collection-section" aria-labelledby="desktopCollectionTitle">
           <div class="toolbar">
             <label class="search-box" for="searchInput">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
+              <span class="sr-only">搜索单词、释义、例句或备注</span>
               <input id="searchInput" type="search" placeholder="搜索单词、释义、例句或备注……" autocomplete="off" />
-              <kbd>⌘ K</kbd>
+              <kbd aria-hidden="true">Ctrl K</kbd>
             </label>
             <label class="select-wrap">
               <span class="sr-only">排序方式</span>
@@ -108,35 +79,49 @@
             </label>
           </div>
 
-          <form class="word-selection-toolbar" id="selectedWordsMoveForm" aria-label="移动所选单词">
-            <label class="word-select-all">
-              <input id="selectAllWords" type="checkbox" disabled />
-              <span>全选当前列表</span>
-            </label>
-            <span class="word-selection-summary" id="selectedWordsSummary" role="status">已选 0 个</span>
-            <button class="text-button" id="clearWordSelectionButton" type="button" disabled>取消选择</button>
-            <label class="word-move-target">
-              <span class="sr-only">所选单词的目标子目录</span>
-              <select id="selectedWordsTarget" aria-label="所选单词的目标子目录" disabled>
-                <option value="">选择目标子目录</option>
-              </select>
-            </label>
-            <button class="secondary-button" id="moveSelectedWordsButton" type="submit" disabled>移动所选</button>
-          </form>
+          <div class="word-list-panel">
+            <form class="word-selection-toolbar" id="selectedWordsMoveForm" aria-label="移动所选单词" hidden>
+              <span class="word-selection-summary" id="selectedWordsSummary" role="status"></span>
+              <button class="text-button" id="clearWordSelectionButton" type="button" disabled>取消选择</button>
+              <label class="word-move-target">
+                <span class="sr-only">所选单词的目标子目录</span>
+                <select id="selectedWordsTarget" disabled>
+                  <option value="">选择目标子目录</option>
+                </select>
+              </label>
+              <button class="secondary-button" id="moveSelectedWordsButton" type="submit" disabled>移动所选</button>
+            </form>
 
-          <div class="word-grid" id="wordGrid" aria-live="polite"></div>
+            <div class="word-list-scroll" id="wordListScroll" role="region" aria-label="单词列表" tabindex="0" aria-busy="true">
+              <table class="word-table" aria-label="单词列表">
+                <colgroup>
+                  <col class="word-selection-column" />
+                  <col class="word-term-column" />
+                  <col />
+                  <col class="word-directory-column" />
+                  <col class="word-actions-column" />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th scope="col" class="word-selection-cell">
+                      <label class="word-checkbox-hit" title="全选当前列表">
+                        <input id="selectAllWords" type="checkbox" aria-label="全选当前列表" disabled />
+                      </label>
+                    </th>
+                    <th scope="col">单词</th>
+                    <th scope="col">释义</th>
+                    <th scope="col">所属子目录</th>
+                    <th scope="col" class="word-actions-cell">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="wordRows"></tbody>
+              </table>
 
-          <div class="empty-state" id="emptyState" hidden>
-            <span class="empty-illustration" aria-hidden="true">
-              <svg viewBox="0 0 120 120">
-                <path d="M31 29h58a8 8 0 0 1 8 8v64H39a8 8 0 0 1-8-8V29Z" />
-                <path d="M31 88V29a11 11 0 0 0-11 11v51a10 10 0 0 0 10 10h67" />
-                <path d="m51 61 8 8 16-20" />
-              </svg>
-            </span>
-            <h3 id="emptyTitle">这里还没有单词</h3>
-            <p id="emptyDescription">先手动添加第一个单词，之后也可以从 Edge 扩展快速收藏。</p>
-            <button class="secondary-button" id="emptyAddButton" type="button">添加第一个单词</button>
+              <div class="empty-state" id="emptyState" hidden>
+                <h2 id="emptyTitle"></h2>
+                <p id="emptyDescription"></p>
+              </div>
+            </div>
           </div>
         </section>
       </main>

@@ -1,4 +1,5 @@
 const DEFAULT_DIRECTORY_ID = '1';
+const DESKTOP_EXPANDED_DIRECTORIES_KEY = 'wordbook.desktop.expanded-directories.v1';
 const MOBILE_FAVORITES_KEY = 'wordbook.mobile.favorites.v2';
 const MOBILE_REVIEWED_DIRECTORIES_KEY = 'wordbook.mobile.reviewed-directories.v2';
 const MOBILE_LAYOUT_QUERY = '(max-width: 700px), (max-width: 950px) and (pointer: coarse)';
@@ -8,7 +9,7 @@ function isMobileLayout() {
   return mobileLayoutMedia.matches;
 }
 
-function loadMobileIds(key) {
+function loadStoredIds(key) {
   try {
     const stored = localStorage.getItem(key);
     if (stored === null) return null;
@@ -19,11 +20,11 @@ function loadMobileIds(key) {
   }
 }
 
-const storedFavorites = loadMobileIds(MOBILE_FAVORITES_KEY);
-const storedReviews = loadMobileIds(MOBILE_REVIEWED_DIRECTORIES_KEY);
+const storedFavorites = loadStoredIds(MOBILE_FAVORITES_KEY);
+const storedReviews = loadStoredIds(MOBILE_REVIEWED_DIRECTORIES_KEY);
 const pendingLegacyIds = {
-  words: storedFavorites ? null : loadMobileIds('wordbook.mobile.favorites.v1'),
-  directories: storedReviews ? null : loadMobileIds('wordbook.mobile.reviewed-directories.v1'),
+  words: storedFavorites ? null : loadStoredIds('wordbook.mobile.favorites.v1'),
+  directories: storedReviews ? null : loadStoredIds('wordbook.mobile.reviewed-directories.v1'),
 };
 
 const state = {
@@ -31,6 +32,7 @@ const state = {
   directories: [],
   desktopDirectoryId: '',
   desktopSubdirectoryId: '',
+  desktopExpandedDirectoryIds: loadStoredIds(DESKTOP_EXPANDED_DIRECTORIES_KEY) || new Set([DEFAULT_DIRECTORY_ID]),
   selectedWordIds: new Set(),
   movingSelectedWords: false,
   desktopLoading: true,
@@ -55,8 +57,8 @@ const state = {
 
 const elements = {
   addWordButton: document.querySelector('#addWordButton'),
-  emptyAddButton: document.querySelector('#emptyAddButton'),
-  wordGrid: document.querySelector('#wordGrid'),
+  wordRows: document.querySelector('#wordRows'),
+  wordListScroll: document.querySelector('#wordListScroll'),
   selectedWordsMoveForm: document.querySelector('#selectedWordsMoveForm'),
   selectAllWords: document.querySelector('#selectAllWords'),
   selectedWordsSummary: document.querySelector('#selectedWordsSummary'),
@@ -67,9 +69,9 @@ const elements = {
   emptyTitle: document.querySelector('#emptyTitle'),
   emptyDescription: document.querySelector('#emptyDescription'),
   resultSummary: document.querySelector('#resultSummary'),
+  desktopCollectionTitle: document.querySelector('#desktopCollectionTitle'),
   totalStat: document.querySelector('#totalStat'),
   todayStat: document.querySelector('#todayStat'),
-  todayLabel: document.querySelector('#todayLabel'),
   searchInput: document.querySelector('#searchInput'),
   sortSelect: document.querySelector('#sortSelect'),
   wordDialog: document.querySelector('#wordDialog'),
@@ -152,6 +154,8 @@ const elements = {
 };
 
 const icons = {
+  folder: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" /></svg>',
+  disclosure: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>',
   edit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.2-1 10.6-10.6a2 2 0 0 0-2.8-2.8L5.4 16.2 4 20Z"/><path d="m14.5 7.2 2.8 2.8"/></svg>',
   delete: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>',
 };
@@ -197,7 +201,7 @@ function getDirectoryEntries({ includeParents = false } = {}) {
   });
 }
 
-function saveMobileIds(key, ids) {
+function saveStoredIds(key, ids) {
   try {
     localStorage.setItem(key, JSON.stringify([...ids]));
   } catch {
@@ -217,7 +221,7 @@ function migrateMobileIds(legacyIds) {
       const id = legacyIds[group]?.[oldId];
       if (typeof id === 'string') ids.add(id);
     }
-    saveMobileIds(key, ids);
+    saveStoredIds(key, ids);
     pendingLegacyIds[group] = null;
   }
 }
@@ -562,7 +566,7 @@ function toggleMobileDirectoryReviewed(directoryId) {
   } else {
     state.mobileReviewedDirectoryIds.add(directoryId);
   }
-  saveMobileIds(MOBILE_REVIEWED_DIRECTORIES_KEY, state.mobileReviewedDirectoryIds);
+  saveStoredIds(MOBILE_REVIEWED_DIRECTORIES_KEY, state.mobileReviewedDirectoryIds);
   state.mobileDirectoryDirty = true;
   renderMobileDirectory();
 }
@@ -575,7 +579,7 @@ function toggleMobileFavorite(wordId) {
     state.mobileFavoriteIds.add(wordId);
     showToast('已加入收藏');
   }
-  saveMobileIds(MOBILE_FAVORITES_KEY, state.mobileFavoriteIds);
+  saveStoredIds(MOBILE_FAVORITES_KEY, state.mobileFavoriteIds);
   state.mobileFavoritesDirty = true;
 
   const currentWord = getMobileStudyWords()[state.mobileIndex];
@@ -619,24 +623,79 @@ function renderDirectoryOptions(selectedId = elements.directorySelect.value) {
   renderDirectorySelect(elements.directorySelect, entries, { selectedId, fallbackId: entries[0]?.id });
 }
 
-function renderDesktopDirectoryNavigation() {
-  elements.allWordsNav.classList.toggle('active', !state.desktopDirectoryId);
-  const fragment = document.createDocumentFragment();
-  getDirectoryEntries({ includeParents: true }).forEach((directory) => {
-    const button = createElement('button', 'desktop-directory-item');
-    button.type = 'button';
-    button.dataset.directoryId = directory.directoryId || directory.id;
-    button.dataset.subdirectoryId = directory.directoryId ? directory.id : '';
-    button.classList.toggle('subdirectory', Boolean(directory.directoryId));
-    button.classList.toggle('active', state.desktopDirectoryId === button.dataset.directoryId
-      && state.desktopSubdirectoryId === button.dataset.subdirectoryId);
-    button.append(
-      createElement('span', '', directory.name),
-      createElement('small', '', directory.wordCount),
-    );
-    fragment.append(button);
+function createDesktopDirectoryButton(directory, parentId = '') {
+  const button = createElement('button', 'desktop-directory-item');
+  button.id = `desktop-directory-${directory.id}`;
+  button.type = 'button';
+  button.title = directory.name;
+  button.dataset.directoryId = parentId || directory.id;
+  button.dataset.subdirectoryId = parentId ? directory.id : '';
+  if (!parentId) button.innerHTML = icons.folder;
+  button.append(
+    createElement('span', 'directory-name', directory.name),
+    createElement('small', 'directory-count', directory.wordCount),
+  );
+  return button;
+}
+
+function setDirectoryExpanded(button, children, expanded) {
+  const label = `${expanded ? '折叠' : '展开'} ${button.dataset.directoryName}`;
+  button.setAttribute('aria-expanded', String(expanded));
+  button.setAttribute('aria-label', label);
+  button.title = label;
+  children.hidden = !expanded;
+}
+
+function renderDesktopDirectorySelection() {
+  const directory = getDirectory(state.desktopDirectoryId);
+  const subdirectory = directory?.subdirectories.find((entry) => entry.id === state.desktopSubdirectoryId);
+  const title = [directory?.name, subdirectory?.name].filter(Boolean).join(' / ') || '全部单词';
+  elements.desktopCollectionTitle.textContent = title;
+  elements.desktopCollectionTitle.title = title;
+  elements.allWordsNav.setAttribute('aria-current', String(!directory));
+  elements.desktopDirectoryList.querySelectorAll('.desktop-directory-item').forEach((button) => {
+    const sameDirectory = button.dataset.directoryId === state.desktopDirectoryId;
+    const active = sameDirectory && button.dataset.subdirectoryId === state.desktopSubdirectoryId;
+    button.setAttribute('aria-current', String(active));
+    button.classList.toggle('contains-selection', sameDirectory && !button.dataset.subdirectoryId && Boolean(subdirectory));
   });
-  elements.desktopDirectoryList.replaceChildren(fragment);
+}
+
+function renderDesktopDirectoryNavigation() {
+  const list = elements.desktopDirectoryList;
+  const focusId = list.contains(document.activeElement) ? document.activeElement.id : '';
+  const scrollTop = list.scrollTop;
+  const fragment = document.createDocumentFragment();
+
+  for (const directory of state.directories) {
+    const group = createElement('li', 'desktop-directory-group');
+    const parentRow = createElement('div', 'desktop-directory-parent');
+    const children = createElement('ul', 'desktop-subdirectory-list');
+    children.id = `desktop-subdirectories-${directory.id}`;
+
+    const toggle = createElement('button', 'desktop-directory-toggle');
+    toggle.type = 'button';
+    toggle.id = `desktop-directory-toggle-${directory.id}`;
+    toggle.dataset.toggleDirectory = directory.id;
+    toggle.dataset.directoryName = directory.name;
+    toggle.setAttribute('aria-controls', children.id);
+    toggle.innerHTML = icons.disclosure;
+    setDirectoryExpanded(toggle, children, state.desktopExpandedDirectoryIds.has(directory.id));
+    parentRow.append(toggle, createDesktopDirectoryButton(directory));
+
+    for (const subdirectory of directory.subdirectories) {
+      const item = createElement('li');
+      item.append(createDesktopDirectoryButton(subdirectory, directory.id));
+      children.append(item);
+    }
+    group.append(parentRow, children);
+    fragment.append(group);
+  }
+
+  list.replaceChildren(fragment);
+  renderDesktopDirectorySelection();
+  list.scrollTop = scrollTop;
+  if (focusId) document.getElementById(focusId)?.focus({ preventScroll: true });
   renderDirectoryOptions();
 }
 
@@ -751,6 +810,8 @@ function setDesktopDirectory(directoryId, subdirectoryId = '') {
   if (state.desktopDirectoryId === directoryId && state.desktopSubdirectoryId === subdirectoryId) return;
   state.desktopDirectoryId = directoryId;
   state.desktopSubdirectoryId = subdirectoryId;
+  renderDesktopDirectorySelection();
+  elements.wordListScroll.scrollTop = 0;
   loadWords();
 }
 
@@ -906,6 +967,7 @@ function updateWordSelection() {
   const targetId = elements.selectedWordsTarget.value;
   const canMove = state.words.some((word) => state.selectedWordIds.has(word.id)
     && word.subdirectoryId !== targetId);
+  elements.selectedWordsMoveForm.hidden = count === 0;
   elements.selectedWordsSummary.textContent = `已选 ${count} 个`;
   elements.selectAllWords.checked = count > 0 && count === state.words.length;
   elements.selectAllWords.indeterminate = count > 0 && count < state.words.length;
@@ -914,10 +976,10 @@ function updateWordSelection() {
   elements.selectedWordsTarget.disabled = busy || !count;
   elements.moveSelectedWordsButton.disabled = busy || !count || !targetId || !canMove;
   elements.moveSelectedWordsButton.textContent = state.movingSelectedWords ? '移动中…' : '移动所选';
-  elements.wordGrid.querySelectorAll('.word-selection-checkbox').forEach((checkbox) => {
+  elements.wordRows.querySelectorAll('.word-selection-checkbox').forEach((checkbox) => {
     checkbox.checked = state.selectedWordIds.has(checkbox.dataset.wordId);
     checkbox.disabled = busy;
-    checkbox.closest('.word-card').classList.toggle('selected', checkbox.checked);
+    checkbox.closest('.word-row').classList.toggle('selected', checkbox.checked);
   });
 }
 
@@ -951,40 +1013,37 @@ async function moveSelectedWords(event) {
 }
 
 function renderDesktopWords() {
-  elements.wordGrid.replaceChildren();
   const hasWords = state.words.length > 0;
-  elements.wordGrid.hidden = !hasWords;
+  const searching = Boolean(elements.searchInput.value.trim());
   elements.emptyState.hidden = hasWords;
-
-  const hasFilters = Boolean(elements.searchInput.value.trim() || state.desktopDirectoryId);
-  elements.resultSummary.textContent = hasFilters
-    ? `找到 ${state.words.length} 个符合条件的单词`
-    : `共 ${state.words.length} 个单词，按你的阅读节奏慢慢积累`;
+  elements.resultSummary.textContent = searching ? `${state.words.length} 个搜索结果` : `${state.words.length} 个单词`;
 
   if (!hasWords) {
-    elements.emptyTitle.textContent = hasFilters ? '没有找到匹配的单词' : '这里还没有单词';
-    elements.emptyDescription.textContent = hasFilters
-      ? '换一个关键词试试看。'
-      : '先手动添加第一个单词，之后也可以从 Edge 扩展快速收藏。';
-    elements.emptyAddButton.hidden = hasFilters;
-    return;
+    elements.emptyTitle.textContent = searching ? '没有找到匹配的单词' : '这里还没有单词';
+    elements.emptyDescription.textContent = searching ? '换一个关键词，或清空搜索。' : '点击「添加单词」开始录入。';
   }
 
+  const fragment = document.createDocumentFragment();
   const directoryPaths = new Map(getDirectoryEntries().map((entry) => [entry.id, entry.label]));
-  state.words.forEach((word, index) => {
-    const card = createElement('article', 'word-card');
-    card.style.animationDelay = `${Math.min(index * 35, 210)}ms`;
-
-    const header = createElement('div', 'word-card-header');
-    const title = createElement('h3', '', word.word);
-    const selectionLabel = createElement('label', 'word-selection-label');
+  for (const word of state.words) {
+    const row = createElement('tr', 'word-row');
+    const selection = createElement('td', 'word-selection-cell');
+    const selectionLabel = createElement('label', 'word-checkbox-hit');
     const checkbox = createElement('input', 'word-selection-checkbox');
     checkbox.type = 'checkbox';
     checkbox.dataset.wordId = word.id;
     checkbox.setAttribute('aria-label', `选择 ${word.word}`);
-    selectionLabel.append(checkbox, createElement('span', '', word.word));
-    title.replaceChildren(selectionLabel);
-    const actions = createElement('div', 'card-actions');
+    selectionLabel.append(checkbox);
+    selection.append(selectionLabel);
+
+    const term = createElement('th', 'word-term', word.word);
+    term.scope = 'row';
+    const meaning = createElement('td', 'word-meaning', word.meaning);
+    const directory = createElement('td', 'word-directory', directoryPaths.get(word.subdirectoryId) || '—');
+    for (const cell of [term, meaning, directory]) cell.title = cell.textContent;
+
+    const actions = createElement('td', 'word-actions-cell');
+    const actionButtons = createElement('div', 'word-row-actions');
 
     const editButton = createElement('button', 'card-action');
     editButton.type = 'button';
@@ -1000,26 +1059,12 @@ function renderDesktopWords() {
     deleteButton.innerHTML = icons.delete;
     deleteButton.addEventListener('click', () => openDeleteDialog(word));
 
-    actions.append(editButton, deleteButton);
-    header.append(title, actions);
-
-    const meaning = createElement('p', 'meaning', word.meaning);
-    card.append(header, meaning);
-
-    const directoryPath = directoryPaths.get(word.subdirectoryId);
-    if (directoryPath) card.append(createElement('span', 'word-directory-badge', directoryPath));
-
-    if (word.examples?.length) {
-      card.append(createElement('p', 'example', `“${word.examples[0]}”`));
-    }
-
-    if (word.notes) {
-      card.append(createElement('p', 'notes-preview', word.notes));
-    }
-
-    elements.wordGrid.append(card);
-  });
-  updateWordSelection();
+    actionButtons.append(editButton, deleteButton);
+    actions.append(actionButtons);
+    row.append(selection, term, meaning, directory, actions);
+    fragment.append(row);
+  }
+  elements.wordRows.replaceChildren(fragment);
 }
 
 async function loadStats() {
@@ -1043,6 +1088,7 @@ async function loadWords() {
   const mobileLayout = isMobileLayout();
   if (!mobileLayout) {
     state.desktopLoading = true;
+    elements.wordListScroll.setAttribute('aria-busy', 'true');
     clearWordSelection();
   }
   try {
@@ -1068,6 +1114,7 @@ async function loadWords() {
   } finally {
     if (!mobileLayout && requestId === state.wordsRequestId) {
       state.desktopLoading = false;
+      elements.wordListScroll.setAttribute('aria-busy', 'false');
       updateWordSelection();
     }
   }
@@ -1231,16 +1278,19 @@ function showToast(message, type = 'success') {
   toastTimer = setTimeout(() => elements.toast.classList.remove('visible'), 2800);
 }
 
-function setTodayLabel() {
-  const now = new Date();
-  const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
-  elements.todayLabel.textContent = `${now.getMonth() + 1} 月 ${now.getDate()} 日 · ${weekdays[now.getDay()]}`;
-}
-
 elements.addWordButton.addEventListener('click', () => openWordDialog());
-elements.emptyAddButton.addEventListener('click', () => openWordDialog());
 elements.allWordsNav.addEventListener('click', () => setDesktopDirectory(''));
 elements.desktopDirectoryList.addEventListener('click', (event) => {
+  const toggle = event.target.closest('[data-toggle-directory]');
+  if (toggle) {
+    const id = toggle.dataset.toggleDirectory;
+    const expanded = !state.desktopExpandedDirectoryIds.has(id);
+    if (expanded) state.desktopExpandedDirectoryIds.add(id);
+    else state.desktopExpandedDirectoryIds.delete(id);
+    setDirectoryExpanded(toggle, document.getElementById(toggle.getAttribute('aria-controls')), expanded);
+    saveStoredIds(DESKTOP_EXPANDED_DIRECTORIES_KEY, state.desktopExpandedDirectoryIds);
+    return;
+  }
   const button = event.target.closest('[data-directory-id]');
   if (button) setDesktopDirectory(button.dataset.directoryId, button.dataset.subdirectoryId);
 });
@@ -1262,7 +1312,7 @@ elements.cancelDialogButton.addEventListener('click', closeWordDialog);
 elements.wordForm.addEventListener('submit', submitWord);
 elements.cancelDeleteButton.addEventListener('click', () => elements.deleteDialog.close());
 elements.confirmDeleteButton.addEventListener('click', deleteWord);
-elements.wordGrid.addEventListener('change', (event) => {
+elements.wordRows.addEventListener('change', (event) => {
   const checkbox = event.target.closest('.word-selection-checkbox');
   if (!checkbox || state.desktopLoading || state.movingSelectedWords) return;
   if (checkbox.checked) state.selectedWordIds.add(checkbox.dataset.wordId);
@@ -1274,7 +1324,10 @@ elements.selectAllWords.addEventListener('change', () => {
     ? new Set(state.words.map((word) => word.id)) : new Set();
   updateWordSelection();
 });
-elements.clearWordSelectionButton.addEventListener('click', clearWordSelection);
+elements.clearWordSelectionButton.addEventListener('click', () => {
+  clearWordSelection();
+  elements.selectAllWords.focus();
+});
 elements.selectedWordsTarget.addEventListener('change', updateWordSelection);
 elements.selectedWordsMoveForm.addEventListener('submit', moveSelectedWords);
 elements.searchInput.addEventListener('input', () => {
@@ -1282,9 +1335,15 @@ elements.searchInput.addEventListener('input', () => {
   state.wordsRequestId += 1;
   state.desktopLoading = true;
   clearWordSelection();
-  state.searchTimer = setTimeout(() => loadWords(), 220);
+  state.searchTimer = setTimeout(() => {
+    elements.wordListScroll.scrollTop = 0;
+    loadWords();
+  }, 220);
 });
-elements.sortSelect.addEventListener('change', () => loadWords());
+elements.sortSelect.addEventListener('change', () => {
+  elements.wordListScroll.scrollTop = 0;
+  loadWords();
+});
 elements.mobileExpandButton.addEventListener('click', () => setMobileExpanded(!state.mobileExpanded));
 elements.mobileNextButton.addEventListener('click', showNextMobileWord);
 elements.mobileFavoriteButton.addEventListener('click', () => {
@@ -1347,8 +1406,4 @@ mobileLayoutMedia.addEventListener('change', () => {
   if (!isMobileLayout()) loadStats();
 });
 
-setTodayLabel();
-if (!isMobileLayout()) {
-  elements.wordGrid.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
-}
 Promise.all(isMobileLayout() ? [loadWords()] : [loadWords(), loadStats()]);
