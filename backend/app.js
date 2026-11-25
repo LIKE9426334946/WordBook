@@ -131,6 +131,7 @@ function createApp({
         directoryId,
         subdirectoryId,
         directories: store.listDirectories(),
+        ...(request.query.legacyIds === '1' && store.legacyIds && { legacyIds: store.legacyIds }),
       },
     });
   });

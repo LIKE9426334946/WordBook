@@ -29,7 +29,7 @@ WordBook/
 ├── backend/
 │   ├── app.js
 │   ├── server.js
-│   └── services/word-store.js
+│   └── services/                # 词库操作和 JSON 读写
 ├── data/words.json
 ├── deploy/
 │   ├── nginx/WordBook
@@ -88,7 +88,28 @@ Content-Type: application/json
 | `POST` | `/api/directories/:id/subdirectories` | 为目录新建子目录 |
 | `PUT` / `DELETE` | `/api/directories/:id/subdirectories/:subdirectoryId` | 重命名或删除子目录 |
 
-第 3 版词库中的原有单词会自动归入各自目录下的「未分类」。第 2 版词库会归入「默认目录 / 未分类」。添加和更新单词时可同时传入 `directoryId` 和 `subdirectoryId`。移动时保留单词 ID、内容和创建时间，位于目标子目录的单词会跳过。目标目录、子目录或所选单词不存在时整批不移动。
+添加和更新单词时可同时传入 `directoryId` 和 `subdirectoryId`。移动时保留单词 ID 和内容，位于目标子目录的单词会跳过。目标目录、子目录或所选单词不存在时整批不移动。
+
+## 词库文件
+
+`data/words.json` 使用第 4 版结构。目录、子目录和单词共用 `1`、`2`、`3` 这样的递增编号，`nextId` 记录下一个可用编号。每条单词只保存 `subdirectoryId` 来关联目录，后端根据它查出上级目录。
+
+```json
+{
+  "version": 4,
+  "nextId": 4,
+  "directories": [
+    { "id": "1", "name": "默认目录", "subdirectories": [{ "id": "2", "name": "未分类" }] }
+  ],
+  "words": [
+    { "id": "3", "subdirectoryId": "2", "word": "gradient", "meaning": "梯度", "examples": [], "notes": "" }
+  ]
+}
+```
+
+每个目录的第一个子目录是默认子目录。最近添加按编号排序，最近更新按单词在文件中的顺序显示。若当天有新增单词，文件级的 `today` 保存北京时间的日期和这些单词的编号。
+
+服务首次读取旧词库时，会保留原有内容和所属目录，并自动生成 `words.json.pre-v4-*.bak`。浏览器可通过该备份对应的编号映射继续使用旧收藏和复习标记。
 
 ## 本地运行
 

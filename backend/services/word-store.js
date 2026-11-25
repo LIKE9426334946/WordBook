@@ -1,34 +1,11 @@
-const crypto = require('node:crypto');
-const fs = require('node:fs');
-const path = require('node:path');
-
-const DATA_VERSION = 3;
-const DEFAULT_DIRECTORY_ID = 'default';
-const DEFAULT_DIRECTORY_NAME = '默认目录';
-const DEFAULT_SUBDIRECTORY_NAME = '未分类';
-
-function defaultSubdirectoryId(directoryId) {
-  return `${directoryId}:default`;
-}
-
-function isDirectory(directory) {
-  return directory && typeof directory.id === 'string' && typeof directory.name === 'string';
-}
-
-function normalizeDirectory(directory) {
-  const subdirectories = Array.isArray(directory.subdirectories)
-    ? directory.subdirectories.filter(isDirectory) : [];
-  const id = defaultSubdirectoryId(directory.id);
-  if (!subdirectories.some((item) => item.id === id)) {
-    subdirectories.unshift({
-      id,
-      name: DEFAULT_SUBDIRECTORY_NAME,
-      createdAt: directory.createdAt,
-      updatedAt: directory.createdAt,
-    });
-  }
-  return { ...directory, subdirectories };
-}
+const {
+  DATA_VERSION,
+  DEFAULT_DIRECTORY_ID,
+  beijingDate,
+  loadWordData,
+  makeDirectory,
+  writeWordData,
+} = require('./word-data');
 
 class StoreError extends Error {
   constructor(code, message, details = null) {
@@ -42,80 +19,15 @@ class StoreError extends Error {
 class WordStore {
   constructor(filePath) {
     this.filePath = filePath;
-    this.state = this.#load();
+    const { state, legacyIds } = loadWordData(filePath);
+    this.state = state;
+    this.legacyIds = legacyIds;
   }
 
-  #load() {
-    fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
-
-    if (!fs.existsSync(this.filePath)) {
-      const initialState = this.#initialState();
-      this.#write(initialState);
-      return initialState;
-    }
-
-    try {
-      const parsed = JSON.parse(fs.readFileSync(this.filePath, 'utf8'));
-
-      if (parsed.version !== 2 && parsed.version !== DATA_VERSION) {
-        const initialState = this.#initialState();
-        this.#write(initialState);
-        return initialState;
-      }
-
-      const words = parsed.words;
-      const parsedDirectories = parsed.version === 2 ? [] : parsed.directories;
-
-      if (!Array.isArray(words) || !Array.isArray(parsedDirectories)) {
-        throw new Error('words 或 directories 字段不是数组');
-      }
-
-      const directories = parsedDirectories.filter(isDirectory).map(normalizeDirectory);
-      if (!directories.some((directory) => directory.id === DEFAULT_DIRECTORY_ID)) {
-        directories.unshift(this.#defaultDirectory());
-      }
-
-      const directoryById = new Map(directories.map((directory) => [directory.id, directory]));
-      const normalizedWords = words.map((word) => {
-        const directory = directoryById.get(word.directoryId) || directoryById.get(DEFAULT_DIRECTORY_ID);
-        const subdirectory = directory.subdirectories.find((item) => item.id === word.subdirectoryId);
-        return {
-          ...word,
-          directoryId: directory.id,
-          subdirectoryId: subdirectory?.id || defaultSubdirectoryId(directory.id),
-        };
-      });
-      const normalizedState = { version: DATA_VERSION, directories, words: normalizedWords };
-
-      if (JSON.stringify(normalizedState) !== JSON.stringify(parsed)) this.#write(normalizedState);
-      return normalizedState;
-    } catch (error) {
-      throw new Error(`无法读取单词数据文件 ${this.filePath}: ${error.message}`);
-    }
-  }
-
-  #initialState() {
-    return { version: DATA_VERSION, directories: [this.#defaultDirectory()], words: [] };
-  }
-
-  #defaultDirectory() {
-    return normalizeDirectory({
-      id: DEFAULT_DIRECTORY_ID,
-      name: DEFAULT_DIRECTORY_NAME,
-      createdAt: new Date(0).toISOString(),
-      updatedAt: new Date(0).toISOString(),
-    });
-  }
-
-  #write(nextState) {
-    const temporaryPath = `${this.filePath}.tmp-${process.pid}-${Date.now()}`;
-    fs.writeFileSync(temporaryPath, `${JSON.stringify(nextState, null, 2)}\n`, 'utf8');
-    fs.renameSync(temporaryPath, this.filePath);
-  }
-
-  #persist(words = this.state.words, directories = this.state.directories) {
-    const nextState = { version: DATA_VERSION, directories, words };
-    this.#write(nextState);
+  #persist(changes) {
+    const nextState = { ...this.state, ...changes };
+    if (!Number.isSafeInteger(nextState.nextId)) throw new Error('单词本编号已超出范围');
+    writeWordData(this.filePath, nextState);
     this.state = nextState;
   }
 
@@ -159,10 +71,11 @@ class WordStore {
 
   #resolveWordLocation(payload, previousWord) {
     const directoryId = payload.directoryId || previousWord?.directoryId || DEFAULT_DIRECTORY_ID;
+    const directory = this.#getDirectory(directoryId);
     const previousSubdirectoryId = directoryId === previousWord?.directoryId
       ? previousWord.subdirectoryId : '';
-    const subdirectoryId = payload.subdirectoryId || previousSubdirectoryId || defaultSubdirectoryId(directoryId);
-    this.#getSubdirectory(this.#getDirectory(directoryId), subdirectoryId);
+    const subdirectoryId = payload.subdirectoryId || previousSubdirectoryId || directory.subdirectories[0].id;
+    this.#getSubdirectory(directory, subdirectoryId);
     return { directoryId, subdirectoryId };
   }
 
@@ -185,13 +98,9 @@ class WordStore {
       return matchesQuery && matchesDirectory && matchesSubdirectory;
     });
 
-    const sorters = {
-      'created-desc': (a, b) => b.createdAt.localeCompare(a.createdAt),
-      'updated-desc': (a, b) => b.updatedAt.localeCompare(a.updatedAt),
-      'word-asc': (a, b) => a.word.localeCompare(b.word, 'en', { sensitivity: 'base' }),
-    };
-
-    return filtered.sort(sorters[sort] || sorters['updated-desc']);
+    if (sort === 'created-desc') return filtered.sort((a, b) => Number(b.id) - Number(a.id));
+    if (sort === 'word-asc') return filtered.sort((a, b) => a.word.localeCompare(b.word, 'en', { sensitivity: 'base' }));
+    return filtered;
   }
 
   getById(id) {
@@ -210,30 +119,22 @@ class WordStore {
       .map((directory) => ({
         ...directory,
         wordCount: directoryCounts.get(directory.id) || 0,
-        defaultSubdirectoryId: defaultSubdirectoryId(directory.id),
+        defaultSubdirectoryId: directory.subdirectories[0].id,
         subdirectories: directory.subdirectories.map((subdirectory) => ({
           ...subdirectory,
           wordCount: subdirectoryCounts.get(subdirectory.id) || 0,
         })),
-      }))
-      .sort((a, b) => {
-        if (a.id === DEFAULT_DIRECTORY_ID) return -1;
-        if (b.id === DEFAULT_DIRECTORY_ID) return 1;
-        return a.createdAt.localeCompare(b.createdAt);
-      });
+      }));
   }
 
   createDirectory(payload) {
     this.#checkDirectoryName(this.state.directories, payload.name);
 
-    const now = new Date().toISOString();
-    const directory = normalizeDirectory({
-      id: crypto.randomUUID(),
-      name: payload.name,
-      createdAt: now,
-      updatedAt: now,
+    const directory = makeDirectory(this.state.nextId, payload.name);
+    this.#persist({
+      nextId: this.state.nextId + 2,
+      directories: [...this.state.directories, directory],
     });
-    this.#persist(this.state.words, [...this.state.directories, directory]);
     return { ...directory, wordCount: 0 };
   }
 
@@ -244,31 +145,26 @@ class WordStore {
     this.#checkDirectoryName(this.state.directories, payload.name, id);
 
     const directories = [...this.state.directories];
-    directories[index] = {
-      ...directories[index],
-      name: payload.name,
-      updatedAt: new Date().toISOString(),
-    };
-    this.#persist(this.state.words, directories);
+    directories[index] = { ...directories[index], name: payload.name };
+    this.#persist({ directories });
     return {
       ...directories[index],
       wordCount: this.state.words.filter((word) => word.directoryId === id).length,
     };
   }
 
-  #updateSubdirectories(directory, subdirectories, words = this.state.words) {
+  #updateSubdirectories(directory, subdirectories, changes = {}) {
     const directories = this.state.directories.map((item) => (
       item.id === directory.id ? { ...item, subdirectories } : item
     ));
-    this.#persist(words, directories);
+    this.#persist({ ...changes, directories });
   }
 
   createSubdirectory(directoryId, { name }) {
     const directory = this.#getDirectory(directoryId);
     this.#checkDirectoryName(directory.subdirectories, name);
-    const now = new Date().toISOString();
-    const subdirectory = { id: crypto.randomUUID(), name, createdAt: now, updatedAt: now };
-    this.#updateSubdirectories(directory, [...directory.subdirectories, subdirectory]);
+    const subdirectory = { id: String(this.state.nextId), name };
+    this.#updateSubdirectories(directory, [...directory.subdirectories, subdirectory], { nextId: this.state.nextId + 1 });
     return { ...subdirectory, wordCount: 0 };
   }
 
@@ -276,7 +172,7 @@ class WordStore {
     const directory = this.#getDirectory(directoryId);
     const subdirectory = this.#getSubdirectory(directory, subdirectoryId);
     this.#checkDirectoryName(directory.subdirectories, name, subdirectoryId);
-    const updated = { ...subdirectory, name, updatedAt: new Date().toISOString() };
+    const updated = { ...subdirectory, name };
     this.#updateSubdirectories(directory, directory.subdirectories.map((item) => (
       item.id === subdirectoryId ? updated : item
     )));
@@ -286,7 +182,7 @@ class WordStore {
   deleteSubdirectory(directoryId, subdirectoryId) {
     const directory = this.#getDirectory(directoryId);
     const subdirectory = this.#getSubdirectory(directory, subdirectoryId);
-    const fallbackId = defaultSubdirectoryId(directoryId);
+    const fallbackId = directory.subdirectories[0].id;
     if (subdirectoryId === fallbackId) {
       throw new StoreError('DEFAULT_SUBDIRECTORY', '默认子目录不能删除');
     }
@@ -295,22 +191,21 @@ class WordStore {
       word.directoryId === directoryId && word.subdirectoryId === subdirectoryId
         ? { ...word, subdirectoryId: fallbackId } : word
     ));
-    this.#updateSubdirectories(directory, directory.subdirectories.filter((item) => item.id !== subdirectoryId), words);
+    const subdirectories = directory.subdirectories.filter((item) => item.id !== subdirectoryId);
+    this.#updateSubdirectories(directory, subdirectories, { words });
     return subdirectory;
   }
 
   #moveMatchingWords(location, matches) {
-    const movedAt = new Date().toISOString();
-    let movedCount = 0;
-    const words = this.state.words.map((word) => {
-      if (!matches(word) || (word.directoryId === location.directoryId
-          && word.subdirectoryId === location.subdirectoryId)) return word;
-      movedCount += 1;
-      return { ...word, ...location, updatedAt: movedAt };
-    });
+    const moved = [];
+    const remaining = [];
+    for (const word of this.state.words) {
+      if (matches(word) && word.subdirectoryId !== location.subdirectoryId) moved.push({ ...word, ...location });
+      else remaining.push(word);
+    }
 
-    if (movedCount > 0) this.#persist(words);
-    return movedCount;
+    if (moved.length) this.#persist({ words: [...moved, ...remaining] });
+    return moved.length;
   }
 
   moveDirectoryWords(sourceId, targetId, { sourceSubdirectoryId, targetSubdirectoryId } = {}) {
@@ -318,7 +213,7 @@ class WordStore {
     const targetDirectory = this.#getDirectory(targetId);
     const source = sourceSubdirectoryId
       ? this.#getSubdirectory(sourceDirectory, sourceSubdirectoryId) : sourceDirectory;
-    const destinationId = targetSubdirectoryId || defaultSubdirectoryId(targetId);
+    const destinationId = targetSubdirectoryId || targetDirectory.subdirectories[0].id;
     const target = targetSubdirectoryId
       ? this.#getSubdirectory(targetDirectory, targetSubdirectoryId) : targetDirectory;
 
@@ -343,7 +238,7 @@ class WordStore {
       throw new StoreError('NOT_FOUND', '部分单词已不存在，请刷新列表后重新选择');
     }
 
-    const location = { directoryId: targetId, subdirectoryId: targetSubdirectoryId || defaultSubdirectoryId(targetId) };
+    const location = { directoryId: targetId, subdirectoryId: targetSubdirectoryId || directory.subdirectories[0].id };
     const movedCount = this.#moveMatchingWords(location, (word) => selectedIds.has(word.id));
     return { target, movedCount };
   }
@@ -354,10 +249,13 @@ class WordStore {
     }
     const directory = this.#getDirectory(id);
 
-    const fallback = { directoryId: DEFAULT_DIRECTORY_ID, subdirectoryId: defaultSubdirectoryId(DEFAULT_DIRECTORY_ID) };
+    const fallback = {
+      directoryId: DEFAULT_DIRECTORY_ID,
+      subdirectoryId: this.#getDirectory(DEFAULT_DIRECTORY_ID).subdirectories[0].id,
+    };
     const words = this.state.words.map((word) => (word.directoryId === id ? { ...word, ...fallback } : word));
     const directories = this.state.directories.filter((item) => item.id !== id);
-    this.#persist(words, directories);
+    this.#persist({ words, directories });
     return directory;
   }
 
@@ -367,19 +265,22 @@ class WordStore {
       throw new StoreError('WORD_EXISTS', `“${duplicate.word}”已经收录`, duplicate);
     }
 
-    const now = new Date().toISOString();
     const word = {
-      id: crypto.randomUUID(),
+      id: String(this.state.nextId),
       word: payload.word,
       meaning: payload.meaning,
       examples: payload.examples,
       notes: payload.notes,
       ...this.#resolveWordLocation(payload),
-      createdAt: now,
-      updatedAt: now,
     };
 
-    this.#persist([word, ...this.state.words]);
+    const date = beijingDate();
+    const todayIds = this.state.today?.date === date ? this.state.today.wordIds : [];
+    this.#persist({
+      nextId: this.state.nextId + 1,
+      words: [word, ...this.state.words],
+      today: { date, wordIds: [...todayIds, word.id] },
+    });
     return word;
   }
 
@@ -401,12 +302,8 @@ class WordStore {
       examples: payload.examples,
       notes: payload.notes,
       ...this.#resolveWordLocation(payload, this.state.words[index]),
-      createdAt: this.state.words[index].createdAt,
-      updatedAt: new Date().toISOString(),
     };
-    const words = [...this.state.words];
-    words[index] = updated;
-    this.#persist(words);
+    this.#persist({ words: [updated, ...this.state.words.filter((word) => word.id !== id)] });
     return updated;
   }
 
@@ -416,23 +313,20 @@ class WordStore {
       throw new StoreError('NOT_FOUND', '没有找到这个单词');
     }
 
-    this.#persist(this.state.words.filter((item) => item.id !== id));
+    const words = this.state.words.filter((item) => item.id !== id);
+    const today = this.state.today;
+    this.#persist({
+      words,
+      ...(today && { today: { ...today, wordIds: today.wordIds.filter((wordId) => wordId !== id) } }),
+    });
     return word;
   }
 
   stats() {
-    const beijingDate = (value) =>
-      new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Asia/Shanghai',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      }).format(new Date(value));
-    const today = beijingDate(new Date());
-
+    const today = this.state.today;
     return {
       total: this.state.words.length,
-      addedToday: this.state.words.filter((item) => beijingDate(item.createdAt) === today).length,
+      addedToday: today?.date === beijingDate() ? today.wordIds.length : 0,
     };
   }
 }

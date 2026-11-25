@@ -4,7 +4,9 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 const { createApp } = require('../backend/app');
-const { WordStore } = require('../backend/services/word-store');
+const { DATA_VERSION, DEFAULT_DIRECTORY_ID, WordStore } = require('../backend/services/word-store');
+
+const DEFAULT_SUBDIRECTORY_ID = '2';
 
 async function withServer(run) {
   const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'wordbook-test-'));
@@ -52,7 +54,7 @@ test('web API supports create, search, update, stats and delete', async () => {
     assert.equal(createResponse.status, 201);
     const created = (await createResponse.json()).data;
     assert.equal(created.notes, '优化算法中的常用概念');
-    assert.equal(created.directoryId, 'default');
+    assert.equal(created.directoryId, DEFAULT_DIRECTORY_ID);
     assert.equal(Object.hasOwn(created, 'sourcePdf'), false);
     assert.equal(Object.hasOwn(created, 'page'), false);
     assert.equal(Object.hasOwn(created, 'tags'), false);
@@ -159,14 +161,14 @@ test('directory API organizes words and safely moves them when a directory is de
     assert.equal(deleteResponse.status, 200);
 
     const movedWord = (await (await fetch(`${baseUrl}/api/words/${word.id}`)).json()).data;
-    assert.equal(movedWord.directoryId, 'default');
+    assert.equal(movedWord.directoryId, DEFAULT_DIRECTORY_ID);
     const remainingDirectories = (await (await fetch(`${baseUrl}/api/directories`)).json()).data;
     assert.deepEqual(
       remainingDirectories.map((item) => item.id),
-      ['default', directory.id],
+      [DEFAULT_DIRECTORY_ID, directory.id],
     );
 
-    const deleteDefaultResponse = await fetch(`${baseUrl}/api/directories/default`, {
+    const deleteDefaultResponse = await fetch(`${baseUrl}/api/directories/${DEFAULT_DIRECTORY_ID}`, {
       method: 'DELETE',
     });
     assert.equal(deleteDefaultResponse.status, 400);
@@ -184,7 +186,7 @@ test('selected-word move changes only selected words and preserves their content
     const target = (await (await post('/api/directories', { name: '已整理' })).json()).data;
     const words = [];
     for (const [word, directoryId] of [
-      ['alpha', 'default'], ['beta', source.id], ['gamma', source.id], ['delta', target.id],
+      ['alpha', DEFAULT_DIRECTORY_ID], ['beta', source.id], ['gamma', source.id], ['delta', target.id],
     ]) {
       words.push((await (await post('/api/words', {
         word, directoryId, meaning: '测试释义', examples: ['Keep this example.'], notes: '保留备注',
@@ -203,14 +205,13 @@ test('selected-word move changes only selected words and preserves their content
           ...before,
           directoryId: target.id,
           subdirectoryId: target.subdirectories[0].id,
-          updatedAt: after.updatedAt,
         });
       } else {
         assert.deepEqual(after, before);
       }
     }
     const directories = (await (await fetch(`${baseUrl}/api/directories`)).json()).data;
-    assert.equal(directories.find((item) => item.id === 'default').wordCount, 0);
+    assert.equal(directories.find((item) => item.id === DEFAULT_DIRECTORY_ID).wordCount, 0);
     assert.equal(directories.find((item) => item.id === source.id).wordCount, 1);
     assert.equal(directories.find((item) => item.id === target.id).wordCount, 3);
     const repeated = await post('/api/words/move', {
@@ -218,7 +219,7 @@ test('selected-word move changes only selected words and preserves their content
     });
     assert.equal((await repeated.json()).data.movedCount, 0);
     const single = await post('/api/words/move', {
-      wordIds: [words[0].id], targetDirectoryId: 'default',
+      wordIds: [words[0].id], targetDirectoryId: DEFAULT_DIRECTORY_ID,
     });
     assert.equal((await single.json()).data.movedCount, 1);
   });
@@ -307,8 +308,8 @@ test('extension API verifies token and rejects duplicate words', async () => {
     assert.equal(created.status, 201);
     const createdWord = (await created.json()).data;
     assert.equal(createdWord.notes, '神经网络的基本单元');
-    assert.equal(createdWord.directoryId, 'default');
-    assert.equal(createdWord.subdirectoryId, 'default:default');
+    assert.equal(createdWord.directoryId, DEFAULT_DIRECTORY_ID);
+    assert.equal(createdWord.subdirectoryId, DEFAULT_SUBDIRECTORY_ID);
 
     const duplicate = await fetch(`${baseUrl}/api/extension/words`, {
       method: 'POST',
@@ -337,7 +338,7 @@ test('API returns useful validation errors', async () => {
   });
 });
 
-test('version 1 data is discarded and replaced by an empty directory-aware store', () => {
+test('version 1 words with fewer fields can be migrated', () => {
   const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'wordbook-store-test-'));
   const dataFile = path.join(temporaryDirectory, 'words.json');
   fs.writeFileSync(dataFile, JSON.stringify({
@@ -353,11 +354,14 @@ test('version 1 data is discarded and replaced by an empty directory-aware store
 
   try {
     const store = new WordStore(dataFile);
-    assert.deepEqual(store.list(), []);
+    assert.deepEqual(store.list(), [{
+      id: '3', word: 'legacy', meaning: '旧数据', examples: [], notes: '',
+      directoryId: DEFAULT_DIRECTORY_ID, subdirectoryId: DEFAULT_SUBDIRECTORY_ID,
+    }]);
     const stored = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-    assert.equal(stored.version, 3);
-    assert.deepEqual(stored.words, []);
-    assert.deepEqual(stored.directories.map((directory) => directory.id), ['default']);
+    assert.equal(stored.version, DATA_VERSION);
+    assert.equal(stored.words.length, 1);
+    assert.deepEqual(stored.directories.map((directory) => directory.id), [DEFAULT_DIRECTORY_ID]);
   } finally {
     fs.rmSync(temporaryDirectory, { recursive: true, force: true });
   }
@@ -381,39 +385,107 @@ test('version 2 words migrate into the default directory without data loss', () 
     const store = new WordStore(dataFile);
     const words = store.list();
     assert.equal(words.length, 1);
-    assert.deepEqual(words[0], { ...legacyWord, directoryId: 'default', subdirectoryId: 'default:default' });
-    assert.equal(JSON.parse(fs.readFileSync(dataFile, 'utf8')).version, 3);
+    const { word, meaning, examples, notes } = legacyWord;
+    assert.deepEqual(words[0], {
+      id: store.legacyIds.words[legacyWord.id], word, meaning, examples, notes,
+      directoryId: DEFAULT_DIRECTORY_ID, subdirectoryId: DEFAULT_SUBDIRECTORY_ID,
+    });
+    assert.equal(JSON.parse(fs.readFileSync(dataFile, 'utf8')).version, DATA_VERSION);
   } finally {
     fs.rmSync(temporaryDirectory, { recursive: true, force: true });
   }
 });
 
-test('existing directories gain a default subdirectory while old word IDs and content are preserved', () => {
+test('version 3 migration keeps directory membership, sort order and local mark aliases', () => {
   const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'wordbook-subdirectory-migration-'));
   const dataFile = path.join(temporaryDirectory, 'words.json');
-  const time = '2026-11-03T10:00:00.000Z';
-  const directory = { id: 'papers', name: '论文', createdAt: time, updatedAt: time };
-  const word = {
-    id: 'sample-word', directoryId: directory.id, word: 'sample', meaning: '样本',
+  const now = new Date().toISOString();
+  const time = new Date(Date.parse(now) - 2 * 24 * 60 * 60 * 1000).toISOString();
+  const oldMethod = { id: '49c6c8b7-a91d-4c38-a424-f21107c8b550', name: '方法', createdAt: time, updatedAt: now };
+  const directory = {
+    id: 'acb517d7-2242-4251-8336-7a2b2f4e3173', name: '论文', createdAt: time, updatedAt: time,
+    subdirectories: [oldMethod],
+  };
+  const oldWord = {
+    id: 'c390b536-1618-4594-98a1-161093e14147', directoryId: directory.id, word: 'sample', meaning: '样本',
     examples: ['A sample.'], notes: '原备注', createdAt: time, updatedAt: time,
   };
-  fs.writeFileSync(dataFile, JSON.stringify({ version: 3, directories: [directory], words: [word] }));
+  const methodWord = {
+    id: 'dc46ee30-227a-4d62-a864-99ef82ffafd3', directoryId: directory.id, subdirectoryId: oldMethod.id,
+    word: 'feature', meaning: '特征', examples: [], notes: '', createdAt: now, updatedAt: now,
+  };
+  const source = JSON.stringify({ version: 3, directories: [directory], words: [oldWord, methodWord] });
+  fs.writeFileSync(dataFile, source);
 
   try {
     const store = new WordStore(dataFile);
-    const migrated = store.listDirectories().find((item) => item.id === directory.id);
+    const directoryId = store.legacyIds.directories[directory.id];
+    const wordId = store.legacyIds.words[oldWord.id];
+    const methodWordId = store.legacyIds.words[methodWord.id];
+    const methodId = store.legacyIds.directories[oldMethod.id];
+    const migrated = store.listDirectories().find((item) => item.id === directoryId);
     const fallback = migrated.subdirectories[0];
     assert.equal(fallback.name, '未分类');
     assert.equal(fallback.wordCount, 1);
-    assert.deepEqual(store.list({ subdirectoryId: fallback.id }), [{ ...word, subdirectoryId: fallback.id }]);
-    assert.deepEqual(new WordStore(dataFile).getById(word.id), store.getById(word.id));
+    assert.deepEqual(store.list({ subdirectoryId: fallback.id }), [{
+      id: wordId, directoryId, subdirectoryId: fallback.id,
+      word: oldWord.word, meaning: oldWord.meaning, examples: oldWord.examples, notes: oldWord.notes,
+    }]);
+    assert.equal(store.getById(methodWordId).subdirectoryId, methodId);
+    assert.deepEqual(store.list({ sort: 'created-desc' }).map((word) => word.id), [methodWordId, wordId]);
+    assert.deepEqual(store.stats(), { total: 2, addedToday: 1 });
+    assert.match(wordId, /^\d{1,2}$/);
+    const saved = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
+    assert.equal(fs.readFileSync(`${dataFile}.pre-v4-${saved.migrationBackup}.bak`, 'utf8'), source);
+    assert.doesNotMatch(JSON.stringify(saved), /"(?:createdAt|updatedAt|directoryId)"/);
 
-    const methods = store.createSubdirectory(directory.id, { name: '方法' });
-    store.moveWords([word.id], directory.id, methods.id);
+    store.moveWords([wordId], directoryId, methodId);
     const reopened = new WordStore(dataFile);
-    assert.deepEqual(reopened.list({ subdirectoryId: methods.id }), [store.getById(word.id)]);
-    assert.equal(reopened.listDirectories().find((item) => item.id === directory.id)
-      .subdirectories.find((item) => item.id === methods.id).wordCount, 1);
+    assert.deepEqual(reopened.legacyIds, store.legacyIds);
+    assert.deepEqual(reopened.list({ subdirectoryId: methodId }).map((word) => word.id), [wordId, methodWordId]);
+    assert.equal(reopened.listDirectories().find((item) => item.id === directoryId)
+      .subdirectories.find((item) => item.id === methodId).wordCount, 2);
+  } finally {
+    fs.rmSync(temporaryDirectory, { recursive: true, force: true });
+  }
+});
+
+test('short IDs remain unique after deletion and preserve recent ordering after restart', () => {
+  const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'wordbook-compact-'));
+  const dataFile = path.join(temporaryDirectory, 'words.json');
+
+  try {
+    const store = new WordStore(dataFile);
+    const folder = store.createDirectory({ name: '论文' });
+    const child = store.createSubdirectory(folder.id, { name: '方法' });
+    const words = Array.from({ length: 6 }, (_, index) => store.create({
+      word: `word-${index}`, meaning: '释义', examples: [], notes: '',
+      directoryId: folder.id, subdirectoryId: child.id,
+    }));
+    const newest = words.at(-1);
+    store.delete(newest.id);
+    const reopened = new WordStore(dataFile);
+    const next = reopened.create({ ...newest, word: 'another' });
+    assert.equal(Number(next.id), Number(newest.id) + 1);
+    const original = words[0];
+    reopened.update(original.id, { ...original, meaning: '更新后的释义' });
+
+    const again = new WordStore(dataFile);
+    assert.equal(again.list({ sort: 'updated-desc' })[0].id, original.id);
+    assert.equal(again.list({ sort: 'created-desc' })[0].id, next.id);
+    assert.equal(again.list({ sort: 'word-asc' })[0].word, 'another');
+    assert.deepEqual(again.stats(), { total: 6, addedToday: 6 });
+    const stored = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
+    assert.deepEqual(Object.keys(stored.directories[1]), ['id', 'name', 'subdirectories']);
+    assert.deepEqual(Object.keys(stored.directories[1].subdirectories[1]), ['id', 'name']);
+    assert.deepEqual(Object.keys(stored.words[0]).sort(), ['examples', 'id', 'meaning', 'notes', 'subdirectoryId', 'word']);
+
+    stored.today.date = '2000-01-01';
+    fs.writeFileSync(dataFile, JSON.stringify(stored));
+    const followingDay = new WordStore(dataFile);
+    assert.equal(followingDay.stats().addedToday, 0);
+    followingDay.create({ ...newest, word: 'today' });
+    assert.equal(followingDay.stats().addedToday, 1);
   } finally {
     fs.rmSync(temporaryDirectory, { recursive: true, force: true });
   }
@@ -477,6 +549,6 @@ test('subdirectory API groups words, enforces the parent, and keeps words when f
     assert.equal((await request(`/api/directories/${notes.id}`, 'DELETE')).status, 200);
     const finalWords = (await request('/api/words')).data;
     assert.equal(finalWords.length, 2);
-    assert.ok(finalWords.every((word) => word.directoryId === 'default' && word.subdirectoryId === 'default:default'));
+    assert.ok(finalWords.every((word) => word.directoryId === DEFAULT_DIRECTORY_ID && word.subdirectoryId === DEFAULT_SUBDIRECTORY_ID));
   });
 });

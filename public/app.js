@@ -1,5 +1,6 @@
-const MOBILE_FAVORITES_KEY = 'wordbook.mobile.favorites.v1';
-const MOBILE_REVIEWED_DIRECTORIES_KEY = 'wordbook.mobile.reviewed-directories.v1';
+const DEFAULT_DIRECTORY_ID = '1';
+const MOBILE_FAVORITES_KEY = 'wordbook.mobile.favorites.v2';
+const MOBILE_REVIEWED_DIRECTORIES_KEY = 'wordbook.mobile.reviewed-directories.v2';
 const MOBILE_LAYOUT_QUERY = '(max-width: 700px), (max-width: 950px) and (pointer: coarse)';
 const mobileLayoutMedia = window.matchMedia(MOBILE_LAYOUT_QUERY);
 
@@ -7,23 +8,23 @@ function isMobileLayout() {
   return mobileLayoutMedia.matches;
 }
 
-function loadMobileFavorites() {
+function loadMobileIds(key) {
   try {
-    const value = JSON.parse(localStorage.getItem(MOBILE_FAVORITES_KEY) || '[]');
+    const stored = localStorage.getItem(key);
+    if (stored === null) return null;
+    const value = JSON.parse(stored);
     return new Set(Array.isArray(value) ? value.filter((id) => typeof id === 'string') : []);
   } catch {
-    return new Set();
+    return null;
   }
 }
 
-function loadMobileReviewedDirectories() {
-  try {
-    const value = JSON.parse(localStorage.getItem(MOBILE_REVIEWED_DIRECTORIES_KEY) || '[]');
-    return new Set(Array.isArray(value) ? value.filter((id) => typeof id === 'string') : []);
-  } catch {
-    return new Set();
-  }
-}
+const storedFavorites = loadMobileIds(MOBILE_FAVORITES_KEY);
+const storedReviews = loadMobileIds(MOBILE_REVIEWED_DIRECTORIES_KEY);
+const pendingLegacyIds = {
+  words: storedFavorites ? null : loadMobileIds('wordbook.mobile.favorites.v1'),
+  directories: storedReviews ? null : loadMobileIds('wordbook.mobile.reviewed-directories.v1'),
+};
 
 const state = {
   words: [],
@@ -41,8 +42,8 @@ const state = {
   mobileIndex: 0,
   mobileExpanded: false,
   mobileView: 'study',
-  mobileFavoriteIds: loadMobileFavorites(),
-  mobileReviewedDirectoryIds: loadMobileReviewedDirectories(),
+  mobileFavoriteIds: storedFavorites || new Set(),
+  mobileReviewedDirectoryIds: storedReviews || new Set(),
   mobileOpenDirectoryId: '',
   mobileOpenSubdirectoryId: '',
   mobileDirectoryQuery: '',
@@ -196,15 +197,29 @@ function getDirectoryEntries({ includeParents = false } = {}) {
   });
 }
 
-function saveMobileFavorites() {
-  localStorage.setItem(MOBILE_FAVORITES_KEY, JSON.stringify([...state.mobileFavoriteIds]));
+function saveMobileIds(key, ids) {
+  try {
+    localStorage.setItem(key, JSON.stringify([...ids]));
+  } catch {
+    // The current page keeps the marks if browser storage is unavailable.
+  }
 }
 
-function saveMobileReviewedDirectories() {
-  localStorage.setItem(
-    MOBILE_REVIEWED_DIRECTORIES_KEY,
-    JSON.stringify([...state.mobileReviewedDirectoryIds]),
-  );
+function migrateMobileIds(legacyIds) {
+  if (!legacyIds) return;
+  const groups = [
+    ['words', MOBILE_FAVORITES_KEY, state.mobileFavoriteIds],
+    ['directories', MOBILE_REVIEWED_DIRECTORIES_KEY, state.mobileReviewedDirectoryIds],
+  ];
+  for (const [group, key, ids] of groups) {
+    if (!pendingLegacyIds[group]?.size) continue;
+    for (const oldId of pendingLegacyIds[group]) {
+      const id = legacyIds[group]?.[oldId];
+      if (typeof id === 'string') ids.add(id);
+    }
+    saveMobileIds(key, ids);
+    pendingLegacyIds[group] = null;
+  }
 }
 
 function getMobileFavorites() {
@@ -452,7 +467,8 @@ function renderActiveMobileView() {
   else renderCurrentMobileWord();
 }
 
-function applyMobileWords(words, directories = state.directories) {
+function applyMobileWords(words, { directories = [], legacyIds } = {}) {
+  migrateMobileIds(legacyIds);
   const currentWordId = getMobileStudyWords()[state.mobileIndex]?.id;
   state.words = words;
   state.directories = directories;
@@ -546,7 +562,7 @@ function toggleMobileDirectoryReviewed(directoryId) {
   } else {
     state.mobileReviewedDirectoryIds.add(directoryId);
   }
-  saveMobileReviewedDirectories();
+  saveMobileIds(MOBILE_REVIEWED_DIRECTORIES_KEY, state.mobileReviewedDirectoryIds);
   state.mobileDirectoryDirty = true;
   renderMobileDirectory();
 }
@@ -559,7 +575,7 @@ function toggleMobileFavorite(wordId) {
     state.mobileFavoriteIds.add(wordId);
     showToast('已加入收藏');
   }
-  saveMobileFavorites();
+  saveMobileIds(MOBILE_FAVORITES_KEY, state.mobileFavoriteIds);
   state.mobileFavoritesDirty = true;
 
   const currentWord = getMobileStudyWords()[state.mobileIndex];
@@ -657,7 +673,7 @@ function renderDirectoryManager() {
     actions.append(editButton);
 
     const parent = getDirectory(directory.directoryId);
-    if (directory.id === 'default' || directory.id === parent?.defaultSubdirectoryId) {
+    if (directory.id === DEFAULT_DIRECTORY_ID || directory.id === parent?.defaultSubdirectoryId) {
       actions.append(createElement('span', 'directory-manager-default', '默认'));
     } else {
       const deleteButton = createElement('button', 'card-action delete');
@@ -845,7 +861,7 @@ async function submitDirectory(event) {
 async function deleteDirectory(directoryId, subdirectoryId = '') {
   const directory = getDirectory(directoryId);
   const entry = subdirectoryId ? directory?.subdirectories.find((item) => item.id === subdirectoryId) : directory;
-  if (!entry || entry.id === 'default' || entry.id === directory.defaultSubdirectoryId) return;
+  if (!entry || entry.id === DEFAULT_DIRECTORY_ID || entry.id === directory.defaultSubdirectoryId) return;
   const description = subdirectoryId ? '其中的单词会移入同一目录的默认子目录。'
     : '该目录及其子目录会一起移除，单词会移入默认目录的默认子目录。';
   if (!window.confirm(`删除“${entry.name}”？${description}`)) return;
@@ -1016,6 +1032,12 @@ async function loadStats() {
   }
 }
 
+function mobileWordParams(extra = {}) {
+  const params = new URLSearchParams({ sort: 'updated-desc', ...extra });
+  if (pendingLegacyIds.words?.size || pendingLegacyIds.directories?.size) params.set('legacyIds', '1');
+  return params;
+}
+
 async function loadWords() {
   const requestId = ++state.wordsRequestId;
   const mobileLayout = isMobileLayout();
@@ -1024,17 +1046,15 @@ async function loadWords() {
     clearWordSelection();
   }
   try {
-    const params = new URLSearchParams(mobileLayout
-      ? { sort: 'updated-desc' }
-      : {
-          q: elements.searchInput.value.trim(),
-          sort: elements.sortSelect.value,
-          ...(state.desktopDirectoryId ? { directoryId: state.desktopDirectoryId } : {}),
-          ...(state.desktopSubdirectoryId ? { subdirectoryId: state.desktopSubdirectoryId } : {}),
-        });
+    const params = mobileLayout ? mobileWordParams() : new URLSearchParams({
+      q: elements.searchInput.value.trim(),
+      sort: elements.sortSelect.value,
+      ...(state.desktopDirectoryId ? { directoryId: state.desktopDirectoryId } : {}),
+      ...(state.desktopSubdirectoryId ? { subdirectoryId: state.desktopSubdirectoryId } : {}),
+    });
     const { data, meta } = await apiFetch(`/api/words?${params}`);
     if (requestId !== state.wordsRequestId) return;
-    if (mobileLayout) applyMobileWords(data, meta.directories || []);
+    if (mobileLayout) applyMobileWords(data, meta);
     else {
       state.words = data;
       if (applyDirectories(meta.directories || [])) return loadWords();
@@ -1063,13 +1083,10 @@ async function refreshMobileWords() {
   const requestId = ++state.wordsRequestId;
 
   try {
-    const params = new URLSearchParams({
-      sort: 'updated-desc',
-      refresh: Date.now().toString(),
-    });
+    const params = mobileWordParams({ refresh: Date.now().toString() });
     const { data, meta } = await apiFetch(`/api/words?${params}`, { cache: 'no-store' });
     if (requestId !== state.wordsRequestId) return;
-    applyMobileWords(data, meta.directories || []);
+    applyMobileWords(data, meta);
     showToast(`已加载最新内容，共 ${data.length} 个单词`);
   } catch (error) {
     if (requestId === state.wordsRequestId) {
@@ -1128,7 +1145,7 @@ function openWordDialog(word = null) {
   elements.meaningInput.value = word?.meaning || '';
   elements.examplesInput.value = word?.examples?.join('\n') || '';
   elements.notesInput.value = word?.notes || '';
-  const directory = getDirectory(state.desktopDirectoryId || 'default');
+  const directory = getDirectory(state.desktopDirectoryId || DEFAULT_DIRECTORY_ID);
   renderDirectoryOptions(word?.subdirectoryId || state.desktopSubdirectoryId || directory?.defaultSubdirectoryId);
   elements.wordDialog.showModal();
   requestAnimationFrame(() => elements.wordInput.focus());

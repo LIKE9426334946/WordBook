@@ -55,7 +55,8 @@ test('mobile catalog opens directories and subdirectories with local review mark
   }
 
   assert.match(script, /wordbook\.mobile\.reviewed-directories\.v1/);
-  assert.match(script, /localStorage\.setItem\(\s*MOBILE_REVIEWED_DIRECTORIES_KEY/s);
+  assert.match(script, /wordbook\.mobile\.reviewed-directories\.v2/);
+  assert.match(script, /saveMobileIds\(MOBILE_REVIEWED_DIRECTORIES_KEY, state\.mobileReviewedDirectoryIds\)/);
   assert.match(script, /function createMobileDirectoryItem\(directory, index,/);
   assert.match(script, /dataset\.mobileAction = 'toggle-directory-review'/);
   assert.match(script, /dataset\.mobileAction = 'open-directory'/);
@@ -87,7 +88,8 @@ test('desktop directory manager can move every word between directories', () => 
 test('favorites stay local and do not add a server word field', () => {
   assert.match(html, /id="mobileFavoriteButton"/);
   assert.match(script, /wordbook\.mobile\.favorites\.v1/);
-  assert.match(script, /localStorage\.setItem\(MOBILE_FAVORITES_KEY/);
+  assert.match(script, /wordbook\.mobile\.favorites\.v2/);
+  assert.match(script, /saveMobileIds\(MOBILE_FAVORITES_KEY, state\.mobileFavoriteIds\)/);
   assert.match(script, /function toggleMobileFavorite\(wordId\)/);
   assert.match(script, /function getMobileFavorites\(\)/);
 
@@ -134,7 +136,7 @@ test('mobile rendering avoids rebuilding hidden or unchanged large lists', () =>
   assert.match(script, /if \(!state\.mobileFavoritesDirty\) return;/);
   assert.match(script, /createDocumentFragment\(\)/);
   assert.match(script, /mobileDirectoryList\.addEventListener\('click', handleMobileListClick\)/);
-  assert.match(script, /if \(mobileLayout\) applyMobileWords\(data, meta\.directories \|\| \[\]\);\s*else \{/s);
+  assert.match(script, /if \(mobileLayout\) applyMobileWords\(data, meta\);\s*else \{/s);
   assert.match(styles, /content-visibility: auto;/);
 
   const mobileStylesStart = styles.indexOf('@media (max-width: 700px)');
