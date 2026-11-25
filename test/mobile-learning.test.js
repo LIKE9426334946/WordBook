@@ -39,12 +39,15 @@ test('mobile view includes directory, study and favorites navigation', () => {
   assert.match(styles, /position: fixed;/);
 });
 
-test('mobile directory uses server-managed groups with an independent local review toggle', () => {
+test('mobile catalog opens directories and subdirectories with local review marks', () => {
   for (const id of [
     'mobileDirectoryBack',
     'mobileDirectoryTitle',
     'mobileDirectoryDescription',
+    'mobileDirectorySearchToggle',
+    'mobileStudyBack',
     'directorySelect',
+    'directoryParentSelect',
     'manageDirectoriesButton',
     'directoryDialog',
   ]) {
@@ -53,12 +56,13 @@ test('mobile directory uses server-managed groups with an independent local revi
 
   assert.match(script, /wordbook\.mobile\.reviewed-directories\.v1/);
   assert.match(script, /localStorage\.setItem\(\s*MOBILE_REVIEWED_DIRECTORIES_KEY/s);
-  assert.match(script, /function createMobileDirectoryItem\(directory, index\)/);
+  assert.match(script, /function createMobileDirectoryItem\(directory, index,/);
   assert.match(script, /dataset\.mobileAction = 'toggle-directory-review'/);
   assert.match(script, /dataset\.mobileAction = 'open-directory'/);
+  assert.match(script, /openMobileDirectory\(directoryAction\.dataset\.directoryId, directoryAction\.dataset\.subdirectoryId\)/);
   assert.match(script, /function toggleMobileDirectoryReviewed\(directoryId\)/);
   assert.match(styles, /\.mobile-directory-review\.reviewed\s*\{/);
-  assert.match(styles, /background: #def3e9;/);
+  assert.match(styles, /background: #dff3e7;/);
 });
 
 test('desktop directory manager can move every word between directories', () => {
@@ -73,9 +77,10 @@ test('desktop directory manager can move every word between directories', () => 
   }
 
   assert.match(script, /async function moveDirectoryWords\(event\)/);
-  assert.match(script, /\/api\/directories\/\$\{sourceId\}\/move-words/);
-  assert.match(script, /targetDirectoryId: targetId/);
-  assert.match(script, /sourceId === targetId \|\| source\.wordCount === 0/);
+  assert.match(script, /directoryEndpoint\(source\.directoryId \|\| source\.id\)\}\/move-words/);
+  assert.match(script, /targetDirectoryId: target\.directoryId/);
+  assert.match(script, /targetSubdirectoryId: target\.id/);
+  assert.match(script, /if \(!count\) return;/);
   assert.match(styles, /\.directory-move-form\s*\{/);
 });
 
@@ -137,12 +142,10 @@ test('mobile rendering avoids rebuilding hidden or unchanged large lists', () =>
   assert.doesNotMatch(styles.slice(mobileStylesStart, reducedMotionStart), /backdrop-filter/);
 });
 
-test('mobile detail cards keep labels quieter than learning content', () => {
-  assert.match(styles, /\.mobile-detail-section h2\s*\{[^}]*font-size: 12px;/s);
-  assert.match(styles, /\.mobile-detail-section h2 > span\s*\{[^}]*width: 22px;[^}]*height: 22px;/s);
-  assert.match(styles, /\.mobile-detail-section p\s*\{[^}]*font-size: 15px;/s);
-  assert.match(styles, /\.mobile-example-list li\s*\{[^}]*font-size: 15px;/s);
-  assert.match(styles, /\.mobile-detail-section h2::after\s*\{/);
+test('mobile details use the StudyApp heading and body sizes', () => {
+  assert.match(styles, /\.mobile-detail-section h2\s*\{[^}]*font-size: 18px;/);
+  assert.match(styles, /\.mobile-detail-section h2 > span\s*\{[^}]*width: 29px;[^}]*height: 29px;/);
+  assert.match(styles, /\.mobile-detail-section p,\s*\.mobile-example-list\s*\{[^}]*font-size: 14px;/);
 });
 
 test('desktop editor exposes exactly word, meaning, examples and notes', () => {

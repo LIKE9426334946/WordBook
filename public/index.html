@@ -116,9 +116,9 @@
             <span class="word-selection-summary" id="selectedWordsSummary" role="status">已选 0 个</span>
             <button class="text-button" id="clearWordSelectionButton" type="button" disabled>取消选择</button>
             <label class="word-move-target">
-              <span class="sr-only">所选单词的目标目录</span>
-              <select id="selectedWordsTarget" aria-label="所选单词的目标目录" disabled>
-                <option value="">选择目标目录</option>
+              <span class="sr-only">所选单词的目标子目录</span>
+              <select id="selectedWordsTarget" aria-label="所选单词的目标子目录" disabled>
+                <option value="">选择目标子目录</option>
               </select>
             </label>
             <button class="secondary-button" id="moveSelectedWordsButton" type="submit" disabled>移动所选</button>
@@ -143,146 +143,137 @@
     </div>
 
     <section class="mobile-learning-view" id="mobileLearningView" aria-label="单词学习">
-      <header class="mobile-learning-header">
-        <span class="mobile-header-mark" aria-hidden="true">
-          <svg viewBox="0 0 40 40">
-            <path d="M11 10.5c4.5 0 7.5 1.5 9 4.3v16.1c-1.9-2.3-4.8-3.4-9-3.4V10.5Z" />
-            <path d="M29 10.5c-4.5 0-7.5 1.5-9 4.3v16.1c1.9-2.3 4.8-3.4 9-3.4V10.5Z" />
-          </svg>
-        </span>
-        <div>
+      <div id="mobilePageContent">
+        <header class="mobile-learning-header">
+          <button id="mobileStudyBack" type="button" aria-label="返回目录">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+          </button>
           <strong id="mobileHeaderTitle">单词学习</strong>
-          <small id="mobileHeaderSubtitle">WordBook</small>
-        </div>
-        <span class="mobile-header-total" id="mobileHeaderTotal">0 词</span>
-      </header>
+          <button class="mobile-favorite-button" id="mobileFavoriteButton" type="button" aria-pressed="false" aria-label="收藏当前单词" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.8 2.84 5.75 6.35.92-4.6 4.48 1.09 6.33L12 17.3l-5.68 2.98 1.09-6.33-4.6-4.48 6.35-.92L12 2.8Z" /></svg>
+          </button>
+        </header>
 
-      <div class="mobile-learning-loading" id="mobileLearningLoading" aria-live="polite">
-        <span></span>
-        <p>正在准备今天的单词……</p>
+        <div class="mobile-learning-loading" id="mobileLearningLoading" aria-live="polite">
+          <span></span>
+          <p>正在准备今天的单词……</p>
+        </div>
+
+        <div class="mobile-learning-empty" id="mobileLearningEmpty" hidden>
+          <span class="mobile-empty-icon" aria-hidden="true">
+            <svg viewBox="0 0 40 40">
+              <path d="M10 8h18a4 4 0 0 1 4 4v22H14a4 4 0 0 1-4-4V8Z" />
+              <path d="M10 28V8a5 5 0 0 0-5 5v16a5 5 0 0 0 5 5h22" />
+            </svg>
+          </span>
+          <h2>还没有可学习的单词</h2>
+          <p>可以在电脑端录入单词，或用 Edge 扩展收集生词。</p>
+          <button id="mobileEmptyDirectoryButton" type="button">打开目录</button>
+        </div>
+
+        <main class="mobile-study-content" id="mobileStudyContent" hidden>
+          <article class="mobile-word-hero">
+            <h1 id="mobileWord">word</h1>
+            <button
+              class="mobile-expand-button"
+              id="mobileExpandButton"
+              type="button"
+              aria-expanded="false"
+              aria-controls="mobileWordDetails"
+              aria-label="显示单词详情"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg>
+            </button>
+          </article>
+
+          <div class="mobile-word-actions">
+            <span id="mobileProgress">1 / 1</span>
+            <button id="mobileNextButton" type="button">
+              下一个单词
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
+
+          <p class="mobile-reveal-hint" id="mobileRevealHint">点击上方按钮查看详情</p>
+
+          <div class="mobile-word-details" id="mobileWordDetails" hidden>
+            <section class="mobile-detail-section">
+              <h2><span aria-hidden="true">译</span>释义</h2>
+              <p id="mobileMeaning"></p>
+            </section>
+
+            <section class="mobile-detail-section" id="mobileExamplesSection" hidden>
+              <h2><span aria-hidden="true">例</span>例句</h2>
+              <ol class="mobile-example-list" id="mobileExampleList"></ol>
+            </section>
+
+            <section class="mobile-detail-section" id="mobileNotesSection" hidden>
+              <h2><span aria-hidden="true">记</span>备注</h2>
+              <p id="mobileNotes"></p>
+            </section>
+
+          </div>
+        </main>
+
+        <main class="mobile-favorites-view" id="mobileFavoritesView" hidden>
+          <ul class="mobile-word-list mobile-favorites-list" id="mobileFavoritesList"></ul>
+          <div class="mobile-learning-empty" id="mobileFavoritesEmpty" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.8 2.84 5.75 6.35.92-4.6 4.48 1.09 6.33L12 17.3l-5.68 2.98 1.09-6.33-4.6-4.48 6.35-.92L12 2.8Z" /></svg>
+            <h2>还没有收藏</h2>
+            <p>在学习页点击星形按钮，就能把单词收藏到这里。</p>
+          </div>
+        </main>
+
+        <nav class="mobile-bottom-nav" aria-label="手机端导航">
+          <button class="mobile-bottom-item" id="mobileDirectoryTab" type="button" data-mobile-view="directory">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01" /></svg>
+            <span>目录</span>
+          </button>
+          <button class="mobile-bottom-item mobile-study-tab active" id="mobileStudyTab" type="button" data-mobile-view="study" aria-current="page">
+            <span class="mobile-study-tab-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 9-3 3 3 3m8-6 3 3-3 3m-2-9-4 12" /></svg>
+            </span>
+            <span>学习</span>
+          </button>
+          <button class="mobile-bottom-item" id="mobileFavoritesTab" type="button" data-mobile-view="favorites">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.8 2.84 5.75 6.35.92-4.6 4.48 1.09 6.33L12 17.3l-5.68 2.98 1.09-6.33-4.6-4.48 6.35-.92L12 2.8Z" /></svg>
+            <span>收藏</span>
+          </button>
+        </nav>
       </div>
 
-      <div class="mobile-learning-empty" id="mobileLearningEmpty" hidden>
-        <span class="mobile-empty-icon" aria-hidden="true">
-          <svg viewBox="0 0 40 40">
-            <path d="M10 8h18a4 4 0 0 1 4 4v22H14a4 4 0 0 1-4-4V8Z" />
-            <path d="M10 28V8a5 5 0 0 0-5 5v16a5 5 0 0 0 5 5h22" />
-          </svg>
-        </span>
-        <h1>还没有可学习的单词</h1>
-        <p>请在电脑端添加，或使用 Edge 插件收藏阅读时遇到的单词和短语。</p>
-      </div>
-
-      <main class="mobile-study-content" id="mobileStudyContent" hidden>
-        <article class="mobile-word-hero">
-          <button
-            class="mobile-favorite-button"
-            id="mobileFavoriteButton"
-            type="button"
-            aria-pressed="false"
-            aria-label="收藏当前单词"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z" /></svg>
-          </button>
-          <h1 id="mobileWord">word</h1>
-          <button
-            class="mobile-expand-button"
-            id="mobileExpandButton"
-            type="button"
-            aria-expanded="false"
-            aria-controls="mobileWordDetails"
-            aria-label="显示单词详情"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9" /></svg>
-          </button>
-        </article>
-
-        <div class="mobile-word-actions">
-          <span id="mobileProgress">1 / 1</span>
-          <button id="mobileNextButton" type="button">
-            下一个单词
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5" /></svg>
-          </button>
-        </div>
-
-        <p class="mobile-reveal-hint" id="mobileRevealHint">点击上方箭头查看释义和其它信息</p>
-
-        <div class="mobile-word-details" id="mobileWordDetails" hidden>
-          <section class="mobile-detail-section">
-            <h2><span aria-hidden="true">译</span>释义</h2>
-            <p class="mobile-meaning" id="mobileMeaning"></p>
-          </section>
-
-          <section class="mobile-detail-section" id="mobileExamplesSection" hidden>
-            <h2><span aria-hidden="true">例</span>例句</h2>
-            <ol class="mobile-example-list" id="mobileExampleList"></ol>
-          </section>
-
-          <section class="mobile-detail-section" id="mobileNotesSection" hidden>
-            <h2><span aria-hidden="true">记</span>备注</h2>
-            <p id="mobileNotes"></p>
-          </section>
-
-        </div>
-      </main>
-
-      <main class="mobile-list-view" id="mobileDirectoryView" hidden>
-        <div class="mobile-list-heading">
-          <button class="mobile-directory-back" id="mobileDirectoryBack" type="button" hidden>
-            <span aria-hidden="true">‹</span> 返回目录
-          </button>
-          <p id="mobileDirectoryEyebrow">WORD DIRECTORIES</p>
-          <h1 id="mobileDirectoryTitle">单词目录</h1>
-          <span id="mobileDirectoryDescription" aria-live="polite">选择一个目录开始复习</span>
-          <button class="mobile-refresh-button" id="mobileRefreshButton" type="button" aria-label="加载服务器上的最新单词">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7" /><path d="M20 4v7h-7" /></svg>
-            <span id="mobileRefreshLabel">刷新</span>
-          </button>
-        </div>
+      <section class="mobile-catalog" id="mobileDirectoryView" role="dialog" aria-modal="true" aria-labelledby="mobileDirectoryTitle" hidden>
+        <header class="mobile-catalog-header">
+          <div class="mobile-catalog-title">
+            <button class="mobile-directory-back" id="mobileDirectoryBack" type="button" aria-label="返回上一级" hidden>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+            </button>
+            <div>
+              <span id="mobileDirectoryContext"></span>
+              <h2 id="mobileDirectoryTitle" tabindex="-1">目录</h2>
+            </div>
+          </div>
+          <div class="mobile-catalog-header-actions">
+            <button id="mobileDirectorySearchToggle" class="mobile-catalog-search-toggle" type="button" aria-label="搜索当前目录" aria-controls="mobileDirectorySearchForm" aria-expanded="false" hidden>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4.5 4.5" /></svg>
+            </button>
+            <button class="mobile-refresh-button" id="mobileRefreshButton" type="button" aria-label="加载服务器上的最新单词">
+              <span aria-hidden="true">↻</span><span id="mobileRefreshLabel">刷新</span>
+            </button>
+            <button id="mobileDirectoryDone" type="button">完成</button>
+          </div>
+        </header>
+        <p class="mobile-catalog-refresh-time" id="mobileRefreshTime">上次刷新：尚未记录</p>
         <form class="mobile-directory-search" id="mobileDirectorySearchForm" role="search" aria-label="搜索目录中的单词">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4.5 4.5" /></svg>
+          <span aria-hidden="true">⌕</span>
           <label class="sr-only" for="mobileDirectorySearchInput">搜索单词或释义</label>
           <input id="mobileDirectorySearchInput" type="search" placeholder="搜索全部单词或释义…" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="search" />
           <button id="mobileDirectorySearchClear" type="button" aria-label="清空单词搜索" hidden>清空</button>
         </form>
+        <span class="sr-only" id="mobileDirectoryDescription" aria-live="polite"></span>
         <ol class="mobile-word-list" id="mobileDirectoryList"></ol>
-        <div class="mobile-list-empty" id="mobileDirectoryEmpty" hidden>
-          <span aria-hidden="true">☰</span>
-          <h2>目录还是空的</h2>
-          <p>请先在电脑端录入学习内容。</p>
-        </div>
-      </main>
-
-      <main class="mobile-list-view" id="mobileFavoritesView" hidden>
-        <div class="mobile-list-heading">
-          <p>FAVORITE WORDS</p>
-          <h1>我的收藏</h1>
-          <span id="mobileFavoritesSummary">收藏的单词会出现在这里</span>
-        </div>
-        <ul class="mobile-word-list mobile-favorites-list" id="mobileFavoritesList"></ul>
-        <div class="mobile-list-empty" id="mobileFavoritesEmpty" hidden>
-          <span aria-hidden="true">☆</span>
-          <h2>还没有收藏</h2>
-          <p>在学习页点击星形按钮，就能把单词收藏到这里。</p>
-        </div>
-      </main>
-
-      <nav class="mobile-bottom-nav" aria-label="手机端导航">
-        <button class="mobile-bottom-item" id="mobileDirectoryTab" type="button" data-mobile-view="directory">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11" /><circle cx="4.5" cy="6" r="1" /><circle cx="4.5" cy="12" r="1" /><circle cx="4.5" cy="18" r="1" /></svg>
-          <span>目录</span>
-        </button>
-        <button class="mobile-bottom-item mobile-study-tab active" id="mobileStudyTab" type="button" data-mobile-view="study" aria-current="page">
-          <span class="mobile-study-tab-icon">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 8-4 4 4 4M15 8l4 4-4 4M13 5l-2 14" /></svg>
-          </span>
-          <span>学习</span>
-        </button>
-        <button class="mobile-bottom-item" id="mobileFavoritesTab" type="button" data-mobile-view="favorites">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z" /></svg>
-          <span>收藏</span>
-        </button>
-      </nav>
+        <p class="mobile-catalog-empty" id="mobileDirectoryEmpty" hidden></p>
+      </section>
     </section>
 
     <dialog class="word-dialog" id="wordDialog">
@@ -306,7 +297,7 @@
           </label>
 
           <label class="field field-full">
-            <span>所属目录</span>
+            <span>所属子目录</span>
             <select id="directorySelect"></select>
           </label>
 
@@ -350,7 +341,12 @@
         </div>
 
         <form class="directory-form" id="directoryForm" novalidate>
-          <input id="directoryId" type="hidden" />
+          <label class="field directory-parent-field" id="directoryParentField">
+            <span>上级目录</span>
+            <select id="directoryParentSelect">
+              <option value="">无（新建一级目录）</option>
+            </select>
+          </label>
           <label class="field">
             <span id="directoryFormLabel">新建目录</span>
             <div class="directory-form-row">
@@ -376,8 +372,8 @@
             </label>
             <span class="directory-move-arrow" aria-hidden="true">→</span>
             <label>
-              <span>目标目录</span>
-              <select id="moveTargetSelect" aria-label="目标目录"></select>
+              <span>目标子目录</span>
+              <select id="moveTargetSelect" aria-label="目标子目录"></select>
             </label>
             <button class="secondary-button directory-move-button" id="moveDirectoryWordsButton" type="submit">
               移动全部

@@ -46,6 +46,7 @@ function validateWordPayload(body = {}) {
     splitLines: true,
   });
   const directoryId = cleanText(body.directoryId, MAX_TEXT_LENGTH.directoryId);
+  const subdirectoryId = cleanText(body.subdirectoryId, MAX_TEXT_LENGTH.directoryId);
 
   const errors = [];
   if (!word) errors.push({ field: 'word', message: '请输入单词' });
@@ -59,7 +60,7 @@ function validateWordPayload(body = {}) {
     throw error;
   }
 
-  return { word, meaning, examples, notes, directoryId };
+  return { word, meaning, examples, notes, directoryId, subdirectoryId };
 }
 
 function validateDirectoryPayload(body = {}) {
@@ -119,7 +120,8 @@ function createApp({
     const query = cleanText(request.query.q, 200);
     const sort = cleanText(request.query.sort, 30);
     const directoryId = cleanText(request.query.directoryId, MAX_TEXT_LENGTH.directoryId);
-    const words = store.list({ query, sort, directoryId });
+    const subdirectoryId = cleanText(request.query.subdirectoryId, MAX_TEXT_LENGTH.directoryId);
+    const words = store.list({ query, sort, directoryId, subdirectoryId });
     response.json({
       data: words,
       meta: {
@@ -127,6 +129,7 @@ function createApp({
         query,
         sort,
         directoryId,
+        subdirectoryId,
         directories: store.listDirectories(),
       },
     });
@@ -157,6 +160,35 @@ function createApp({
     }
   });
 
+  app.post('/api/directories/:id/subdirectories', (request, response, next) => {
+    try {
+      const subdirectory = store.createSubdirectory(request.params.id, validateDirectoryPayload(request.body));
+      response.status(201).json({ data: subdirectory, message: '子目录已创建' });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.put('/api/directories/:id/subdirectories/:subdirectoryId', (request, response, next) => {
+    try {
+      const { id, subdirectoryId } = request.params;
+      const subdirectory = store.updateSubdirectory(id, subdirectoryId, validateDirectoryPayload(request.body));
+      response.json({ data: subdirectory, message: '子目录已更新' });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete('/api/directories/:id/subdirectories/:subdirectoryId', (request, response, next) => {
+    try {
+      const { id, subdirectoryId } = request.params;
+      const subdirectory = store.deleteSubdirectory(id, subdirectoryId);
+      response.json({ data: subdirectory, message: '子目录已删除，其中单词已移入同一目录的默认子目录' });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.post('/api/directories/:id/move-words', (request, response, next) => {
     try {
       const targetDirectoryId = cleanText(
@@ -171,7 +203,10 @@ function createApp({
         throw error;
       }
 
-      const result = store.moveDirectoryWords(request.params.id, targetDirectoryId);
+      const result = store.moveDirectoryWords(request.params.id, targetDirectoryId, {
+        sourceSubdirectoryId: cleanText(request.body?.sourceSubdirectoryId, MAX_TEXT_LENGTH.directoryId),
+        targetSubdirectoryId: cleanText(request.body?.targetSubdirectoryId, MAX_TEXT_LENGTH.directoryId),
+      });
       response.json({
         data: result,
         message: result.movedCount
@@ -186,7 +221,7 @@ function createApp({
   app.delete('/api/directories/:id', (request, response, next) => {
     try {
       const directory = store.deleteDirectory(request.params.id);
-      response.json({ data: directory, message: '目录已删除，其中单词已移入默认目录' });
+      response.json({ data: directory, message: '目录已删除，其中单词已移入默认目录的默认子目录' });
     } catch (error) {
       next(error);
     }
@@ -208,7 +243,8 @@ function createApp({
         throw error;
       }
 
-      const result = store.moveWords(wordIds, targetDirectoryId);
+      const targetSubdirectoryId = cleanText(request.body?.targetSubdirectoryId, MAX_TEXT_LENGTH.directoryId);
+      const result = store.moveWords(wordIds, targetDirectoryId, targetSubdirectoryId);
       response.json({
         data: result,
         message: result.movedCount
@@ -276,6 +312,7 @@ function createApp({
       const payload = validateWordPayload({
         ...request.body,
         directoryId: DEFAULT_DIRECTORY_ID,
+        subdirectoryId: '',
       });
       const word = store.create(payload);
       return response.status(201).json({ data: word, message: '已添加到单词本' });
@@ -296,7 +333,7 @@ function createApp({
     if (error instanceof StoreError) {
       const status = ['WORD_EXISTS', 'DIRECTORY_EXISTS'].includes(error.code)
         ? 409
-        : ['DEFAULT_DIRECTORY', 'SAME_DIRECTORY'].includes(error.code) ? 400 : 404;
+        : ['DEFAULT_DIRECTORY', 'DEFAULT_SUBDIRECTORY', 'SAME_DIRECTORY'].includes(error.code) ? 400 : 404;
       return response.status(status).json({
         error: { code: error.code, message: error.message, existing: error.details },
       });

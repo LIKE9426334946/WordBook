@@ -199,7 +199,12 @@ test('selected-word move changes only selected words and preserves their content
     for (const [index, before] of words.entries()) {
       const after = (await (await fetch(`${baseUrl}/api/words/${before.id}`)).json()).data;
       if (index < 2) {
-        assert.deepEqual(after, { ...before, directoryId: target.id, updatedAt: after.updatedAt });
+        assert.deepEqual(after, {
+          ...before,
+          directoryId: target.id,
+          subdirectoryId: target.subdirectories[0].id,
+          updatedAt: after.updatedAt,
+        });
       } else {
         assert.deepEqual(after, before);
       }
@@ -279,6 +284,7 @@ test('extension API verifies token and rejects duplicate words', async () => {
       examples: ['A neuron receives signals.'],
       notes: '神经网络的基本单元',
       directoryId: 'extension-must-not-choose-a-directory',
+      subdirectoryId: 'extension-must-not-choose-a-subdirectory',
     };
     const unauthorized = await fetch(`${baseUrl}/api/extension/words`, {
       method: 'POST',
@@ -302,6 +308,7 @@ test('extension API verifies token and rejects duplicate words', async () => {
     const createdWord = (await created.json()).data;
     assert.equal(createdWord.notes, '神经网络的基本单元');
     assert.equal(createdWord.directoryId, 'default');
+    assert.equal(createdWord.subdirectoryId, 'default:default');
 
     const duplicate = await fetch(`${baseUrl}/api/extension/words`, {
       method: 'POST',
@@ -374,9 +381,102 @@ test('version 2 words migrate into the default directory without data loss', () 
     const store = new WordStore(dataFile);
     const words = store.list();
     assert.equal(words.length, 1);
-    assert.deepEqual(words[0], { ...legacyWord, directoryId: 'default' });
+    assert.deepEqual(words[0], { ...legacyWord, directoryId: 'default', subdirectoryId: 'default:default' });
     assert.equal(JSON.parse(fs.readFileSync(dataFile, 'utf8')).version, 3);
   } finally {
     fs.rmSync(temporaryDirectory, { recursive: true, force: true });
   }
+});
+
+test('existing directories gain a default subdirectory while old word IDs and content are preserved', () => {
+  const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'wordbook-subdirectory-migration-'));
+  const dataFile = path.join(temporaryDirectory, 'words.json');
+  const time = '2026-11-03T10:00:00.000Z';
+  const directory = { id: 'papers', name: '论文', createdAt: time, updatedAt: time };
+  const word = {
+    id: 'sample-word', directoryId: directory.id, word: 'sample', meaning: '样本',
+    examples: ['A sample.'], notes: '原备注', createdAt: time, updatedAt: time,
+  };
+  fs.writeFileSync(dataFile, JSON.stringify({ version: 3, directories: [directory], words: [word] }));
+
+  try {
+    const store = new WordStore(dataFile);
+    const migrated = store.listDirectories().find((item) => item.id === directory.id);
+    const fallback = migrated.subdirectories[0];
+    assert.equal(fallback.name, '未分类');
+    assert.equal(fallback.wordCount, 1);
+    assert.deepEqual(store.list({ subdirectoryId: fallback.id }), [{ ...word, subdirectoryId: fallback.id }]);
+    assert.deepEqual(new WordStore(dataFile).getById(word.id), store.getById(word.id));
+
+    const methods = store.createSubdirectory(directory.id, { name: '方法' });
+    store.moveWords([word.id], directory.id, methods.id);
+    const reopened = new WordStore(dataFile);
+    assert.deepEqual(reopened.list({ subdirectoryId: methods.id }), [store.getById(word.id)]);
+    assert.equal(reopened.listDirectories().find((item) => item.id === directory.id)
+      .subdirectories.find((item) => item.id === methods.id).wordCount, 1);
+  } finally {
+    fs.rmSync(temporaryDirectory, { recursive: true, force: true });
+  }
+});
+
+test('subdirectory API groups words, enforces the parent, and keeps words when folders are removed', async () => {
+  await withServer(async (baseUrl) => {
+    const request = async (route, method = 'GET', body) => {
+      const response = await fetch(`${baseUrl}${route}`, {
+        method,
+        headers: { 'content-type': 'application/json' },
+        body: body && JSON.stringify(body),
+      });
+      return { status: response.status, ...(await response.json()) };
+    };
+    const { data: papers } = await request('/api/directories', 'POST', { name: '论文' });
+    const { data: notes } = await request('/api/directories', 'POST', { name: '笔记' });
+    const pathOf = (directory) => `/api/directories/${directory.id}/subdirectories`;
+    const { data: methods } = await request(pathOf(papers), 'POST', { name: '方法' });
+    const { data: results } = await request(pathOf(papers), 'POST', { name: '结果' });
+    assert.equal((await request(pathOf(papers), 'POST', { name: '方法' })).status, 409);
+    const { status, data: otherMethods } = await request(pathOf(notes), 'POST', { name: '方法' });
+    assert.equal(status, 201);
+
+    const methodPath = `${pathOf(papers)}/${methods.id}`;
+    assert.equal((await request(`${pathOf(notes)}/${methods.id}`, 'PUT', { name: '改名' })).status, 404);
+    assert.equal((await request(methodPath, 'PUT', { name: '模型方法' })).data.name, '模型方法');
+
+    const { data: model } = await request('/api/words', 'POST', {
+      word: 'model', meaning: '模型', directoryId: papers.id, subdirectoryId: methods.id,
+    });
+    const { data: accuracy } = await request('/api/words', 'POST', {
+      word: 'accuracy', meaning: '准确率', directoryId: papers.id, subdirectoryId: results.id,
+    });
+    assert.equal((await request('/api/words', 'POST', {
+      word: 'invalid', meaning: '无效', directoryId: notes.id, subdirectoryId: methods.id,
+    })).status, 404);
+    const directoryWords = await request(`/api/words?directoryId=${papers.id}`);
+    assert.equal(directoryWords.data.length, 2);
+    const papersSummary = directoryWords.meta.directories.find((item) => item.id === papers.id);
+    assert.equal(papersSummary.wordCount, 2);
+    assert.equal(papersSummary.subdirectories.find((item) => item.id === methods.id).wordCount, 1);
+    assert.deepEqual((await request(`/api/words?subdirectoryId=${methods.id}`)).data, [model]);
+
+    const updated = await request(`/api/words/${model.id}`, 'PUT', { word: 'model', meaning: '模型结构' });
+    assert.equal(updated.data.subdirectoryId, methods.id);
+    assert.equal((await request('/api/words/move', 'POST', {
+      wordIds: [accuracy.id], targetDirectoryId: papers.id, targetSubdirectoryId: otherMethods.id,
+    })).status, 404);
+    assert.equal((await request(`/api/words/${accuracy.id}`)).data.subdirectoryId, results.id);
+    assert.equal((await request('/api/words/move', 'POST', {
+      wordIds: [accuracy.id], targetDirectoryId: papers.id, targetSubdirectoryId: methods.id,
+    })).data.movedCount, 1);
+    assert.equal((await request(`/api/directories/${papers.id}/move-words`, 'POST', {
+      sourceSubdirectoryId: methods.id, targetDirectoryId: notes.id, targetSubdirectoryId: otherMethods.id,
+    })).data.movedCount, 2);
+
+    assert.equal((await request(`${pathOf(notes)}/${otherMethods.id}`, 'DELETE')).status, 200);
+    assert.equal((await request(`/api/words/${model.id}`)).data.subdirectoryId, notes.subdirectories[0].id);
+    assert.equal((await request(`${pathOf(notes)}/${notes.subdirectories[0].id}`, 'DELETE')).status, 400);
+    assert.equal((await request(`/api/directories/${notes.id}`, 'DELETE')).status, 200);
+    const finalWords = (await request('/api/words')).data;
+    assert.equal(finalWords.length, 2);
+    assert.ok(finalWords.every((word) => word.directoryId === 'default' && word.subdirectoryId === 'default:default'));
+  });
 });
