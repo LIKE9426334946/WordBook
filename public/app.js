@@ -37,8 +37,7 @@ const state = {
   movingSelectedWords: false,
   desktopLoading: true,
   wordsRequestId: 0,
-  editingDirectoryId: '',
-  editingSubdirectoryId: '',
+  directoryEditor: null,
   deletingWord: null,
   searchTimer: null,
   mobileIndex: 0,
@@ -88,23 +87,23 @@ const elements = {
   directorySelect: document.querySelector('#directorySelect'),
   allWordsNav: document.querySelector('#allWordsNav'),
   desktopDirectoryList: document.querySelector('#desktopDirectoryList'),
-  manageDirectoriesButton: document.querySelector('#manageDirectoriesButton'),
+  newDirectoryButton: document.querySelector('#newDirectoryButton'),
   directoryDialog: document.querySelector('#directoryDialog'),
+  directoryDialogTitle: document.querySelector('#directoryDialogTitle'),
+  directoryDialogPath: document.querySelector('#directoryDialogPath'),
   closeDirectoryDialogButton: document.querySelector('#closeDirectoryDialogButton'),
   directoryForm: document.querySelector('#directoryForm'),
-  directoryParentField: document.querySelector('#directoryParentField'),
-  directoryParentSelect: document.querySelector('#directoryParentSelect'),
-  directoryFormLabel: document.querySelector('#directoryFormLabel'),
   directoryNameInput: document.querySelector('#directoryNameInput'),
   directoryNameError: document.querySelector('#directoryNameError'),
+  directoryActionError: document.querySelector('#directoryActionError'),
   submitDirectoryButton: document.querySelector('#submitDirectoryButton'),
-  cancelDirectoryEditButton: document.querySelector('#cancelDirectoryEditButton'),
+  directoryActions: document.querySelector('#directoryActions'),
+  addSubdirectoryButton: document.querySelector('#addSubdirectoryButton'),
+  deleteDirectoryButton: document.querySelector('#deleteDirectoryButton'),
   directoryMoveForm: document.querySelector('#directoryMoveForm'),
-  moveSourceSelect: document.querySelector('#moveSourceSelect'),
   moveTargetSelect: document.querySelector('#moveTargetSelect'),
   directoryMoveSummary: document.querySelector('#directoryMoveSummary'),
   moveDirectoryWordsButton: document.querySelector('#moveDirectoryWordsButton'),
-  directoryManagerList: document.querySelector('#directoryManagerList'),
   deleteDialog: document.querySelector('#deleteDialog'),
   deleteWordName: document.querySelector('#deleteWordName'),
   cancelDeleteButton: document.querySelector('#cancelDeleteButton'),
@@ -638,6 +637,19 @@ function createDesktopDirectoryButton(directory, parentId = '') {
   return button;
 }
 
+function createDesktopDirectoryEditButton(directory, parentId = '') {
+  const button = createElement('button', 'desktop-directory-edit');
+  button.type = 'button';
+  button.id = `desktop-directory-edit-${directory.id}`;
+  button.dataset.editDirectory = parentId || directory.id;
+  button.dataset.editSubdirectory = parentId ? directory.id : '';
+  button.title = `编辑 ${directory.name}`;
+  button.setAttribute('aria-label', button.title);
+  button.setAttribute('aria-haspopup', 'dialog');
+  button.innerHTML = icons.edit;
+  return button;
+}
+
 function setDirectoryExpanded(button, children, expanded) {
   const label = `${expanded ? '折叠' : '展开'} ${button.dataset.directoryName}`;
   button.setAttribute('aria-expanded', String(expanded));
@@ -681,11 +693,14 @@ function renderDesktopDirectoryNavigation() {
     toggle.setAttribute('aria-controls', children.id);
     toggle.innerHTML = icons.disclosure;
     setDirectoryExpanded(toggle, children, state.desktopExpandedDirectoryIds.has(directory.id));
-    parentRow.append(toggle, createDesktopDirectoryButton(directory));
+    parentRow.append(toggle, createDesktopDirectoryButton(directory), createDesktopDirectoryEditButton(directory));
 
     for (const subdirectory of directory.subdirectories) {
-      const item = createElement('li');
-      item.append(createDesktopDirectoryButton(subdirectory, directory.id));
+      const item = createElement('li', 'desktop-directory-child');
+      item.append(
+        createDesktopDirectoryButton(subdirectory, directory.id),
+        createDesktopDirectoryEditButton(subdirectory, directory.id),
+      );
       children.append(item);
     }
     group.append(parentRow, children);
@@ -695,60 +710,14 @@ function renderDesktopDirectoryNavigation() {
   list.replaceChildren(fragment);
   renderDesktopDirectorySelection();
   list.scrollTop = scrollTop;
-  if (focusId) document.getElementById(focusId)?.focus({ preventScroll: true });
+  if (focusId) (document.getElementById(focusId) || elements.allWordsNav).focus({ preventScroll: true });
   renderDirectoryOptions();
 }
 
-function renderDirectoryManager() {
-  const fragment = document.createDocumentFragment();
-  getDirectoryEntries({ includeParents: true }).forEach((directory) => {
-    const item = createElement('div', 'directory-manager-item');
-    item.classList.toggle('subdirectory', Boolean(directory.directoryId));
-    const copy = createElement('div', 'directory-manager-copy');
-    copy.append(
-      createElement('strong', '', directory.name),
-      createElement('small', '', `${directory.wordCount} 个单词`),
-    );
-    const actions = createElement('div', 'directory-manager-actions');
-
-    if (!directory.directoryId) {
-      const addButton = createElement('button', 'card-action');
-      addButton.type = 'button';
-      addButton.dataset.directoryAction = 'add-subdirectory';
-      addButton.dataset.directoryId = directory.id;
-      addButton.title = `在 ${directory.name} 下新建子目录`;
-      addButton.setAttribute('aria-label', addButton.title);
-      addButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>';
-      actions.append(addButton);
-    }
-
-    const editButton = createElement('button', 'card-action');
-    editButton.type = 'button';
-    editButton.dataset.directoryAction = 'edit';
-    editButton.dataset.directoryId = directory.directoryId || directory.id;
-    editButton.dataset.subdirectoryId = directory.directoryId ? directory.id : '';
-    editButton.setAttribute('aria-label', `重命名 ${directory.name}`);
-    editButton.innerHTML = icons.edit;
-    actions.append(editButton);
-
-    const parent = getDirectory(directory.directoryId);
-    if (directory.id === DEFAULT_DIRECTORY_ID || directory.id === parent?.defaultSubdirectoryId) {
-      actions.append(createElement('span', 'directory-manager-default', '默认'));
-    } else {
-      const deleteButton = createElement('button', 'card-action delete');
-      deleteButton.type = 'button';
-      deleteButton.dataset.directoryAction = 'delete';
-      deleteButton.dataset.directoryId = editButton.dataset.directoryId;
-      deleteButton.dataset.subdirectoryId = editButton.dataset.subdirectoryId;
-      deleteButton.setAttribute('aria-label', `删除 ${directory.name}`);
-      deleteButton.innerHTML = icons.delete;
-      actions.append(deleteButton);
-    }
-
-    item.append(copy, actions);
-    fragment.append(item);
-  });
-  elements.directoryManagerList.replaceChildren(fragment);
+function getEditedDirectory(entries = getDirectoryEntries({ includeParents: true })) {
+  const editor = state.directoryEditor;
+  if (!editor || editor.creating) return null;
+  return entries.find((entry) => entry.id === (editor.subdirectoryId || editor.directoryId));
 }
 
 function countMovableWords(source, target) {
@@ -756,34 +725,20 @@ function countMovableWords(source, target) {
   return source.wordCount - (source.id === target.directoryId ? target.wordCount : 0);
 }
 
-function renderDirectoryMoveOptions(preferredSourceId = '') {
+function renderDirectoryMoveOptions() {
   const entries = getDirectoryEntries({ includeParents: true });
-  const fallbackSource = entries.find((entry) => entry.wordCount > 0) || entries[0];
-  renderDirectorySelect(elements.moveSourceSelect, entries.map((entry) => ({
-    ...entry, label: `${entry.label}（${entry.wordCount}）`,
-  })), {
-    selectedId: preferredSourceId || elements.moveSourceSelect.value,
-    fallbackId: fallbackSource?.id,
-  });
-  const source = entries.find((entry) => entry.id === elements.moveSourceSelect.value);
-  const targets = entries.filter((entry) => entry.directoryId && entry.id !== source?.id);
-  const defaultTarget = targets.find((entry) => countMovableWords(source, entry) > 0) || targets[0];
-  renderDirectorySelect(elements.moveTargetSelect, targets, { fallbackId: defaultTarget?.id });
+  const source = getEditedDirectory(entries);
+  const targets = entries.filter((entry) => entry.directoryId && countMovableWords(source, entry) > 0);
+  elements.directoryMoveForm.hidden = !targets.length;
+  if (!targets.length) return;
+
+  renderDirectorySelect(elements.moveTargetSelect, targets, { fallbackId: targets[0].id });
   const target = targets.find((entry) => entry.id === elements.moveTargetSelect.value);
   const count = countMovableWords(source, target);
-  elements.directoryMoveSummary.textContent = source
-    ? `“${source.label}”当前有 ${source.wordCount} 个单词`
-    : '请先创建目录';
-  elements.moveDirectoryWordsButton.textContent = count ? `移动 ${count} 个` : '移动全部';
-  elements.moveDirectoryWordsButton.disabled = count === 0;
-}
-
-function renderDirectoryParentOptions(selectedId = elements.directoryParentSelect.value) {
-  const entries = state.directories.map((directory) => ({ id: directory.id, label: directory.name }));
-  renderDirectorySelect(elements.directoryParentSelect, entries, {
-    selectedId,
-    placeholder: '无（新建一级目录）',
-  });
+  elements.directoryMoveSummary.textContent = `“${source.label}”有 ${source.wordCount} 个单词`;
+  elements.moveTargetSelect.disabled = state.directoryEditor.busy;
+  elements.moveDirectoryWordsButton.textContent = `移动 ${count} 个`;
+  elements.moveDirectoryWordsButton.disabled = state.directoryEditor.busy || count === 0;
 }
 
 function applyDirectories(directories) {
@@ -798,11 +753,7 @@ function applyDirectories(directories) {
   if (missingSubdirectory) state.desktopSubdirectoryId = '';
   renderDesktopDirectoryNavigation();
   renderSelectedWordsTargets();
-  if (elements.directoryDialog.open) {
-    renderDirectoryParentOptions();
-    renderDirectoryManager();
-    renderDirectoryMoveOptions();
-  }
+  if (elements.directoryDialog.open) renderDirectoryEditor();
   return missingDirectory || missingSubdirectory;
 }
 
@@ -815,31 +766,67 @@ function setDesktopDirectory(directoryId, subdirectoryId = '') {
   loadWords();
 }
 
-function resetDirectoryForm(parentId = '') {
-  state.editingDirectoryId = '';
-  state.editingSubdirectoryId = '';
-  renderDirectoryParentOptions(parentId);
-  elements.directoryParentField.hidden = false;
-  elements.directoryNameInput.value = '';
-  elements.directoryNameError.textContent = '';
-  elements.directoryFormLabel.textContent = parentId ? '新建子目录' : '新建目录';
-  elements.submitDirectoryButton.textContent = '添加';
-  elements.cancelDirectoryEditButton.hidden = true;
+function renderDirectoryEditor() {
+  const editor = state.directoryEditor;
+  if (!editor) return;
+  const { directoryId, subdirectoryId, creating, busy } = editor;
+  const directory = getDirectory(directoryId);
+  const entry = getEditedDirectory();
+  if ((directoryId && !directory) || (!creating && !entry)) {
+    elements.directoryDialog.close();
+    return;
+  }
+
+  const isSubdirectory = Boolean(subdirectoryId || (creating && directoryId));
+  const showParent = Boolean(directory && isSubdirectory);
+  elements.directoryDialogTitle.textContent = `${creating ? '新建' : '编辑'}${isSubdirectory ? '子目录' : '目录'}`;
+  elements.directoryDialogPath.hidden = !showParent;
+  elements.directoryDialogPath.textContent = showParent ? `上级目录 · ${directory.name}` : '';
+  elements.directoryNameInput.readOnly = busy;
+  elements.submitDirectoryButton.textContent = creating ? '创建' : '保存';
+  elements.submitDirectoryButton.disabled = busy;
+  elements.addSubdirectoryButton.hidden = creating || Boolean(subdirectoryId);
+  elements.addSubdirectoryButton.disabled = busy;
+  elements.deleteDirectoryButton.hidden = !entry || entry.id === DEFAULT_DIRECTORY_ID
+    || entry.id === directory?.defaultSubdirectoryId;
+  elements.deleteDirectoryButton.disabled = busy;
+  elements.deleteDirectoryButton.textContent = subdirectoryId ? '删除子目录' : '删除目录';
+  elements.directoryActions.hidden = elements.addSubdirectoryButton.hidden && elements.deleteDirectoryButton.hidden;
+  renderDirectoryMoveOptions();
 }
 
-function openDirectoryDialog() {
-  resetDirectoryForm();
-  renderDirectoryManager();
-  renderDirectoryMoveOptions(state.desktopSubdirectoryId || state.desktopDirectoryId);
-  elements.directoryDialog.showModal();
-  requestAnimationFrame(() => elements.directoryNameInput.focus());
+function openDirectoryDialog({ directoryId = '', subdirectoryId = '', creating = true } = {}) {
+  const directory = getDirectory(directoryId);
+  const entry = subdirectoryId ? directory?.subdirectories.find((item) => item.id === subdirectoryId) : directory;
+  if ((directoryId && !directory) || (!creating && !entry)) return;
+  state.directoryEditor = { directoryId, subdirectoryId, creating, busy: false };
+  elements.directoryNameInput.value = creating ? '' : entry.name;
+  elements.directoryNameError.textContent = '';
+  elements.directoryActionError.textContent = '';
+  elements.moveTargetSelect.value = '';
+  renderDirectoryEditor();
+  if (!elements.directoryDialog.open) elements.directoryDialog.showModal();
+  elements.directoryNameInput.focus();
+  if (!creating) elements.directoryNameInput.select();
+}
+
+async function finishDirectoryChange(editor, message) {
+  if (state.directoryEditor === editor) elements.directoryDialog.close();
+  showToast(message);
+  await loadWords();
+}
+
+function showDirectoryError(editor, message, field) {
+  if (state.directoryEditor === editor && elements.directoryDialog.open) field.textContent = message;
+  else showToast(message, 'error');
 }
 
 async function moveDirectoryWords(event) {
   event.preventDefault();
-  if (elements.moveDirectoryWordsButton.disabled) return;
+  const editor = state.directoryEditor;
+  if (!editor || editor.busy) return;
   const entries = getDirectoryEntries({ includeParents: true });
-  const source = entries.find((entry) => entry.id === elements.moveSourceSelect.value);
+  const source = getEditedDirectory(entries);
   const target = entries.find((entry) => entry.id === elements.moveTargetSelect.value && entry.directoryId);
   const count = countMovableWords(source, target);
   if (!count) return;
@@ -849,8 +836,9 @@ async function moveDirectoryWords(event) {
   );
   if (!confirmed) return;
 
-  elements.moveDirectoryWordsButton.disabled = true;
-  elements.moveDirectoryWordsButton.textContent = '移动中…';
+  editor.busy = true;
+  elements.directoryActionError.textContent = '';
+  renderDirectoryEditor();
   try {
     const result = await apiFetch(`${directoryEndpoint(source.directoryId || source.id)}/move-words`, {
       method: 'POST',
@@ -860,12 +848,12 @@ async function moveDirectoryWords(event) {
         targetSubdirectoryId: target.id,
       }),
     });
-    showToast(result.message);
-    await loadWords();
+    await finishDirectoryChange(editor, result.message);
   } catch (error) {
-    showToast(error.message, 'error');
+    showDirectoryError(editor, error.message, elements.directoryActionError);
   } finally {
-    if (elements.directoryDialog.open) renderDirectoryMoveOptions(source.id);
+    editor.busy = false;
+    if (state.directoryEditor === editor && elements.directoryDialog.open) renderDirectoryEditor();
   }
 }
 
@@ -874,84 +862,71 @@ function directoryEndpoint(directoryId, subdirectoryId = '') {
   return subdirectoryId ? `${base}/subdirectories/${encodeURIComponent(subdirectoryId)}` : base;
 }
 
-function startDirectoryEdit(directoryId, subdirectoryId = '') {
-  const directory = getDirectory(directoryId);
-  const entry = subdirectoryId ? directory?.subdirectories.find((item) => item.id === subdirectoryId) : directory;
-  if (!entry) return;
-  state.editingDirectoryId = directoryId;
-  state.editingSubdirectoryId = subdirectoryId;
-  elements.directoryParentField.hidden = true;
-  elements.directoryNameInput.value = entry.name;
-  elements.directoryNameError.textContent = '';
-  elements.directoryFormLabel.textContent = subdirectoryId ? '重命名子目录' : '重命名目录';
-  elements.submitDirectoryButton.textContent = '保存';
-  elements.cancelDirectoryEditButton.hidden = false;
-  elements.directoryNameInput.focus();
-  elements.directoryNameInput.select();
-}
-
 async function submitDirectory(event) {
   event.preventDefault();
+  const editor = state.directoryEditor;
+  if (!editor || editor.busy) return;
   const name = elements.directoryNameInput.value.trim();
   if (!name) {
     elements.directoryNameError.textContent = '请输入目录名称';
     return;
   }
 
-  const id = state.editingDirectoryId;
-  const parentId = elements.directoryParentSelect.value;
-  const url = !id && parentId
-    ? `${directoryEndpoint(parentId)}/subdirectories`
-    : directoryEndpoint(id, state.editingSubdirectoryId);
-  elements.submitDirectoryButton.disabled = true;
+  const { creating, directoryId, subdirectoryId } = editor;
+  const url = creating && directoryId
+    ? `${directoryEndpoint(directoryId)}/subdirectories`
+    : directoryEndpoint(directoryId, subdirectoryId);
+  editor.busy = true;
+  elements.directoryNameError.textContent = '';
+  renderDirectoryEditor();
   try {
     const result = await apiFetch(url, {
-      method: id ? 'PUT' : 'POST',
+      method: creating ? 'POST' : 'PUT',
       body: JSON.stringify({ name }),
     });
-    showToast(result.message);
-    resetDirectoryForm(id ? '' : parentId);
-    await loadWords();
+    if (creating && directoryId) {
+      state.desktopExpandedDirectoryIds.add(directoryId);
+      saveStoredIds(DESKTOP_EXPANDED_DIRECTORIES_KEY, state.desktopExpandedDirectoryIds);
+    }
+    await finishDirectoryChange(editor, result.message);
+    if (creating && !elements.directoryDialog.open) {
+      document.getElementById(`desktop-directory-${result.data.id}`)?.scrollIntoView({ block: 'nearest' });
+    }
   } catch (error) {
-    elements.directoryNameError.textContent = error.message;
+    showDirectoryError(editor, error.message, elements.directoryNameError);
   } finally {
-    elements.submitDirectoryButton.disabled = false;
+    editor.busy = false;
+    if (state.directoryEditor === editor && elements.directoryDialog.open) renderDirectoryEditor();
   }
 }
 
-async function deleteDirectory(directoryId, subdirectoryId = '') {
-  const directory = getDirectory(directoryId);
-  const entry = subdirectoryId ? directory?.subdirectories.find((item) => item.id === subdirectoryId) : directory;
-  if (!entry || entry.id === DEFAULT_DIRECTORY_ID || entry.id === directory.defaultSubdirectoryId) return;
+async function deleteDirectory() {
+  const editor = state.directoryEditor;
+  const entry = getEditedDirectory();
+  if (!entry || editor.busy || elements.deleteDirectoryButton.hidden) return;
+  const { directoryId, subdirectoryId } = editor;
   const description = subdirectoryId ? '其中的单词会移入同一目录的默认子目录。'
     : '该目录及其子目录会一起移除，单词会移入默认目录的默认子目录。';
   if (!window.confirm(`删除“${entry.name}”？${description}`)) return;
 
+  editor.busy = true;
+  elements.directoryActionError.textContent = '';
+  renderDirectoryEditor();
   try {
     const result = await apiFetch(directoryEndpoint(directoryId, subdirectoryId), { method: 'DELETE' });
-    showToast(result.message);
-    if (state.editingDirectoryId === directoryId && (!subdirectoryId || state.editingSubdirectoryId === subdirectoryId)) {
-      resetDirectoryForm();
+    if (!subdirectoryId && state.desktopExpandedDirectoryIds.delete(directoryId)) {
+      saveStoredIds(DESKTOP_EXPANDED_DIRECTORIES_KEY, state.desktopExpandedDirectoryIds);
     }
     if (state.desktopDirectoryId === directoryId && (!subdirectoryId || state.desktopSubdirectoryId === subdirectoryId)) {
       if (!subdirectoryId) state.desktopDirectoryId = '';
       state.desktopSubdirectoryId = '';
     }
-    await loadWords();
+    await finishDirectoryChange(editor, result.message);
   } catch (error) {
-    showToast(error.message, 'error');
-  }
-}
-
-function handleDirectoryManagerClick(event) {
-  const button = event.target.closest('[data-directory-action]');
-  if (!button) return;
-  const { directoryAction, directoryId, subdirectoryId } = button.dataset;
-  if (directoryAction === 'edit') startDirectoryEdit(directoryId, subdirectoryId);
-  else if (directoryAction === 'delete') deleteDirectory(directoryId, subdirectoryId);
-  else if (directoryAction === 'add-subdirectory') {
-    resetDirectoryForm(directoryId);
-    elements.directoryNameInput.focus();
+    showDirectoryError(editor, error.message, elements.directoryActionError);
+  } finally {
+    editor.busy = false;
+    if (state.directoryEditor === editor && elements.directoryDialog.open) renderDirectoryEditor();
   }
 }
 
@@ -1291,22 +1266,30 @@ elements.desktopDirectoryList.addEventListener('click', (event) => {
     saveStoredIds(DESKTOP_EXPANDED_DIRECTORIES_KEY, state.desktopExpandedDirectoryIds);
     return;
   }
+  const edit = event.target.closest('[data-edit-directory]');
+  if (edit) {
+    openDirectoryDialog({
+      directoryId: edit.dataset.editDirectory,
+      subdirectoryId: edit.dataset.editSubdirectory,
+      creating: false,
+    });
+    return;
+  }
   const button = event.target.closest('[data-directory-id]');
   if (button) setDesktopDirectory(button.dataset.directoryId, button.dataset.subdirectoryId);
 });
-elements.manageDirectoriesButton.addEventListener('click', openDirectoryDialog);
+elements.newDirectoryButton.addEventListener('click', () => openDirectoryDialog());
 elements.closeDirectoryDialogButton.addEventListener('click', () => elements.directoryDialog.close());
+elements.directoryDialog.addEventListener('close', () => {
+  if (!elements.directoryDialog.open) state.directoryEditor = null;
+});
 elements.directoryForm.addEventListener('submit', submitDirectory);
-elements.cancelDirectoryEditButton.addEventListener('click', () => resetDirectoryForm());
-elements.directoryParentSelect.addEventListener('change', () => {
-  elements.directoryFormLabel.textContent = elements.directoryParentSelect.value ? '新建子目录' : '新建目录';
+elements.addSubdirectoryButton.addEventListener('click', () => {
+  openDirectoryDialog({ directoryId: state.directoryEditor.directoryId });
 });
+elements.deleteDirectoryButton.addEventListener('click', deleteDirectory);
 elements.directoryMoveForm.addEventListener('submit', moveDirectoryWords);
-elements.moveSourceSelect.addEventListener('change', () => {
-  renderDirectoryMoveOptions(elements.moveSourceSelect.value);
-});
-elements.moveTargetSelect.addEventListener('change', () => renderDirectoryMoveOptions());
-elements.directoryManagerList.addEventListener('click', handleDirectoryManagerClick);
+elements.moveTargetSelect.addEventListener('change', renderDirectoryMoveOptions);
 elements.closeDialogButton.addEventListener('click', closeWordDialog);
 elements.cancelDialogButton.addEventListener('click', closeWordDialog);
 elements.wordForm.addEventListener('submit', submitWord);

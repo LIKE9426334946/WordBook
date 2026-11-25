@@ -28,9 +28,9 @@
         <nav class="side-nav" aria-labelledby="directoryHeading">
           <div class="sidebar-heading">
             <h2 id="directoryHeading">目录</h2>
-            <button class="manage-directories-button" id="manageDirectoriesButton" type="button">
+            <button class="new-directory-button" id="newDirectoryButton" type="button" aria-haspopup="dialog">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h6l2 2h8v10H4V7Z" /><path d="M12 13v4M10 15h4" /></svg>
-              管理目录
+              新建目录
             </button>
           </div>
           <button class="nav-item active" id="allWordsNav" type="button" aria-current="true">
@@ -313,12 +313,12 @@
       </form>
     </dialog>
 
-    <dialog class="word-dialog directory-dialog" id="directoryDialog">
+    <dialog class="word-dialog directory-dialog" id="directoryDialog" aria-labelledby="directoryDialogTitle">
       <div class="directory-dialog-content">
         <div class="dialog-header">
           <div>
-            <span class="dialog-kicker">WORD DIRECTORIES</span>
-            <h2>管理目录</h2>
+            <h2 id="directoryDialogTitle">新建目录</h2>
+            <p class="directory-dialog-path" id="directoryDialogPath" hidden></p>
           </div>
           <button class="dialog-close" id="closeDirectoryDialogButton" type="button" aria-label="关闭">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
@@ -326,47 +326,40 @@
         </div>
 
         <form class="directory-form" id="directoryForm" novalidate>
-          <label class="field directory-parent-field" id="directoryParentField">
-            <span>上级目录</span>
-            <select id="directoryParentSelect">
-              <option value="">无（新建一级目录）</option>
-            </select>
-          </label>
-          <label class="field">
-            <span id="directoryFormLabel">新建目录</span>
-            <div class="directory-form-row">
-              <input id="directoryNameInput" type="text" maxlength="80" placeholder="例如：神经网络" autocomplete="off" required />
-              <button class="primary-button" id="submitDirectoryButton" type="submit">添加</button>
-              <button class="text-button" id="cancelDirectoryEditButton" type="button" hidden>取消编辑</button>
-            </div>
-            <small class="field-error" id="directoryNameError"></small>
-          </label>
+          <div class="directory-form-row">
+            <label class="field" for="directoryNameInput">
+              <span>目录名称</span>
+              <input id="directoryNameInput" type="text" maxlength="80" placeholder="输入目录名称" autocomplete="off" aria-describedby="directoryNameError" required />
+            </label>
+            <button class="primary-button" id="submitDirectoryButton" type="submit">创建</button>
+          </div>
+          <small class="field-error" id="directoryNameError" role="alert"></small>
         </form>
 
-        <form class="directory-move-form" id="directoryMoveForm">
+        <form class="directory-move-form" id="directoryMoveForm" hidden>
           <div class="directory-move-heading">
-            <div>
-              <span>批量移动</span>
-              <small id="directoryMoveSummary">把一个目录中的全部单词移动到另一个目录</small>
-            </div>
+            <strong>批量移动单词</strong>
+            <small id="directoryMoveSummary"></small>
           </div>
           <div class="directory-move-row">
             <label>
-              <span>来源目录</span>
-              <select id="moveSourceSelect" aria-label="来源目录"></select>
-            </label>
-            <span class="directory-move-arrow" aria-hidden="true">→</span>
-            <label>
-              <span>目标子目录</span>
-              <select id="moveTargetSelect" aria-label="目标子目录"></select>
+              <span class="sr-only">目标子目录</span>
+              <select id="moveTargetSelect"></select>
             </label>
             <button class="secondary-button directory-move-button" id="moveDirectoryWordsButton" type="submit">
-              移动全部
+              移动单词
             </button>
           </div>
         </form>
 
-        <div class="directory-manager-list" id="directoryManagerList"></div>
+        <div class="directory-actions" id="directoryActions" hidden>
+          <button class="text-button" id="addSubdirectoryButton" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+            新建子目录
+          </button>
+          <button class="text-button directory-delete-button" id="deleteDirectoryButton" type="button">删除目录</button>
+        </div>
+        <p class="field-error" id="directoryActionError" role="alert"></p>
       </div>
     </dialog>
 

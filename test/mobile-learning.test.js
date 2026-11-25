@@ -47,9 +47,6 @@ test('mobile catalog opens directories and subdirectories with local review mark
     'mobileDirectorySearchToggle',
     'mobileStudyBack',
     'directorySelect',
-    'directoryParentSelect',
-    'manageDirectoriesButton',
-    'directoryDialog',
   ]) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
@@ -66,10 +63,13 @@ test('mobile catalog opens directories and subdirectories with local review mark
   assert.match(styles, /background: #dff3e7;/);
 });
 
-test('desktop directory manager can move every word between directories', () => {
+test('desktop directory actions belong to each row and can move its words', () => {
   for (const id of [
+    'newDirectoryButton',
+    'directoryDialog',
+    'addSubdirectoryButton',
+    'deleteDirectoryButton',
     'directoryMoveForm',
-    'moveSourceSelect',
     'moveTargetSelect',
     'directoryMoveSummary',
     'moveDirectoryWordsButton',
@@ -77,7 +77,11 @@ test('desktop directory manager can move every word between directories', () => 
     assert.match(html, new RegExp(`id="${id}"`));
   }
 
+  assert.doesNotMatch(html, /id="(?:manageDirectoriesButton|directoryManagerList|moveSourceSelect)"/);
+  assert.match(script, /createDesktopDirectoryEditButton\(directory\)/);
+  assert.match(script, /createDesktopDirectoryEditButton\(subdirectory, directory\.id\)/);
   assert.match(script, /async function moveDirectoryWords\(event\)/);
+  assert.match(script, /const source = getEditedDirectory\(entries\)/);
   assert.match(script, /directoryEndpoint\(source\.directoryId \|\| source\.id\)\}\/move-words/);
   assert.match(script, /targetDirectoryId: target\.directoryId/);
   assert.match(script, /targetSubdirectoryId: target\.id/);
